@@ -4,7 +4,6 @@ Logs carry ids, counts, timings and the model; never the question or document te
 """
 
 import logging
-import threading
 import time
 import uuid
 from collections.abc import Callable
@@ -17,6 +16,7 @@ from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.logging import request_id_var
 from app.db.models import Conversation, Document, Message, MessageFeedback
+from app.modules.models.gate import generation_slot
 from app.modules.models.interfaces import ChatModel, ModelError
 from app.modules.rag.answer import GroundedAnswer, answer_question
 from app.modules.retrieval.service import RetrievalConfig, RetrievalResult, retrieve
@@ -35,18 +35,6 @@ from app.schemas.chat import (
 logger = logging.getLogger(__name__)
 
 EXCERPT_CHARS = 1200
-
-_gate_lock = threading.Lock()
-_gate: threading.BoundedSemaphore | None = None
-
-
-def _generation_gate(settings: Settings) -> threading.BoundedSemaphore:
-    global _gate
-    with _gate_lock:
-        if _gate is None:
-            _gate = threading.BoundedSemaphore(settings.max_concurrent_generations)
-        return _gate
-
 
 Retriever = Callable[[Session, Settings, str, RetrievalConfig, Scope], RetrievalResult]
 
@@ -126,29 +114,21 @@ def ask(
     )
     result = retriever(session, settings, query.question, config, scope)
 
-    gate = _generation_gate(settings)
-    if not gate.acquire(timeout=settings.generation_queue_wait_seconds):
-        raise AppError(
-            "generation_busy",
-            "Another answer is being generated on this machine. Try again in a moment.",
-            429,
-        )
     try:
-        grounded: GroundedAnswer = answer_question(
-            query.question,
-            result.candidates,
-            chat,
-            max_context_chars=settings.rag_context_chars,
-            # The similarity threshold only applies to cosine scores (dense mode).
-            min_score=settings.rag_min_dense_score
-            if result.mode == "dense" and settings.rag_min_dense_score >= 0
-            else None,
-            temperature=settings.rag_temperature,
-        )
+        with generation_slot(settings):
+            grounded: GroundedAnswer = answer_question(
+                query.question,
+                result.candidates,
+                chat,
+                max_context_chars=settings.rag_context_chars,
+                # The similarity threshold only applies to cosine scores (dense mode).
+                min_score=settings.rag_min_dense_score
+                if result.mode == "dense" and settings.rag_min_dense_score >= 0
+                else None,
+                temperature=settings.rag_temperature,
+            )
     except ModelError as exc:
         raise AppError(exc.code, exc.message, 503 if exc.retryable else 502) from exc
-    finally:
-        gate.release()
 
     latency = round((time.perf_counter() - started) * 1000)
     timings = dict(result.timings_ms)

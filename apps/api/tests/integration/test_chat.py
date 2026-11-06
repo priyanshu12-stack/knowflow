@@ -16,7 +16,6 @@ from app.db.models import Message, MessageFeedback, Workspace
 from app.modules.documents.extraction import Extraction, Limits, extract
 from app.modules.documents.storage import FileStorage
 from app.modules.models.embedding_stage import attach_embedding
-from app.modules.rag import service as rag_service
 from app.workers.ingestion import Pipeline, run
 from tests.fake_ollama import FakeOllama
 from tests.files import PDF_MIME, text_pdf_bytes
@@ -167,8 +166,10 @@ def test_model_failure_is_a_safe_503(
 def test_concurrent_generation_is_capped(
     db_client: TestClient, indexed: str, fake_ollama: FakeOllama, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from app.modules.models import gate as gate_module
+
     gate = threading.BoundedSemaphore(1)
-    monkeypatch.setattr(rag_service, "_generation_gate", lambda _settings: gate)
+    monkeypatch.setattr(gate_module, "_semaphore", lambda _settings: gate)
     settings = get_settings().model_copy(update={"generation_queue_wait_seconds": 0})
     app = db_client.app
     app.dependency_overrides[get_settings] = lambda: settings  # type: ignore[attr-defined]

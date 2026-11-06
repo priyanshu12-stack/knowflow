@@ -66,3 +66,20 @@ def test_postgres_unreachable_does_not_leak_connection_details() -> None:
     dumped = checks[0].model_dump_json()
     assert "leaky" not in dumped
     assert "127.0.0.1" not in dumped
+
+
+def test_ollama_timeout_while_generating_is_reported_as_busy_not_down() -> None:
+    import httpx
+
+    from app.core.config import get_settings
+    from app.core.readiness import check_ollama
+
+    def slow(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("busy", request=request)
+
+    client = httpx.Client(base_url="http://o.test", transport=httpx.MockTransport(slow))
+    busy = check_ollama(get_settings(), client, busy=True)
+    assert [(c.name, c.state) for c in busy] == [("ollama", "ok")]
+    assert "busy" in busy[0].detail
+    idle = check_ollama(get_settings(), client, busy=False)
+    assert idle[0].state == "unavailable"
