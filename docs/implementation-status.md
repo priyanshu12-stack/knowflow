@@ -10,7 +10,7 @@ _Last updated: 2026-11-07_
 
 | Item | Value |
 |---|---|
-| Active milestone | **M4 – Basic RAG: complete**. Next: M5 – Retrieval experiments |
+| Active milestone | **M5 – Retrieval experiments: complete except S4** (reranker not installed). Next: M6 – Text-to-SQL |
 | Branch | `main` (M0 merged from `feat/m0-foundation`) |
 | Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
@@ -139,9 +139,17 @@ _Last updated: 2026-11-07_
 Not done (recorded in ADR-000 G-8): RAG `/chat/clarify` is not exposed. Conversation history is shown but not sent to retrieval (each question is retrieved independently).
 
 ### M5 – Retrieval experiments
-- [ ] Postgres FTS, RRF, top-k controls, reranker adapter/toggle
-- [ ] Dataset import, retrieval metrics, run worker, comparison UI, per-case inspector, export
-- [ ] **Exit:** four configurations (S1–S4) run on same gold set with reproducible metrics
+- [x] Postgres FTS (OR-of-terms; AND matched nothing on natural questions), RRF (k=60), top-k controls, reranker adapter + toggle (optional install)
+- [x] Dataset create / CSV+JSONL import with row errors, bundled synthetic corpus + 50-case gold set (sample loader), deterministic metrics, worker-executed resumable runs, comparison table, per-case inspector, JSON/CSV export
+- [~] **Exit:** S1–S3 (+ lexical reference) run on the same gold set with reproducible metrics (S2 rerun gave identical numbers in tests). **S4 not measured**: the reranker isn't installed on this machine (ADR-004)
+
+#### M5 verification record (2026-11-07)
+
+| Check | Result |
+|---|---|
+| Tests | pytest 220 passed + 2 opt-in skipped (evaluation integration: S1–S3 same set, reproducibility, S4 refusal, S4 with a fake reranker, answers, export, dataset lock, resume after crash); vitest 71/71 |
+| Real benchmark (nomic, qwen3:4b, CPU) | See docs/evaluation/README.md. S3 hybrid MRR 0.891 vs S2 dense 0.879; answers on the held-out split: abstention 12/12, citation precision 0.955, p50 57 s |
+| Not done | S4 (reranker not installed). Gold labels not yet human-reviewed |
 
 ### M6 – Text-to-SQL
 - [ ] Demo schema + synthetic seed, read-only role, introspection, glossary
