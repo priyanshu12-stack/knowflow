@@ -10,7 +10,7 @@ _Last updated: 2026-11-07_
 
 | Item | Value |
 |---|---|
-| Active milestone | **M1 – Data foundation: complete**. Next: M2 – Ingestion pipeline |
+| Active milestone | **M2 – Ingestion pipeline: complete**. Next: M3 – Local model integration |
 | Branch | `main` (M0 merged from `feat/m0-foundation`) |
 | Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
@@ -35,8 +35,8 @@ _Last updated: 2026-11-07_
 | Prerequisite | Needed by | Status | Setup |
 |---|---|---|---|
 | PostgreSQL 16 + pgvector | M0 | **Installed**: conda env `knowflow-pg`, PG 16.15 + pgvector 0.8.6, cluster in `data/postgres` | `scripts/db.ps1 install` / `init` / `start` |
-| `qwen3:4b` | M4 | Not pulled | `ollama pull qwen3:4b` |
-| `nomic-embed-text:v1.5` | M3 | Not pulled | `ollama pull nomic-embed-text:v1.5` |
+| `qwen3:4b` | M4 | **Pulled** 2026-11-07 (2.5 GB, id 359d7dd4bcda) | `ollama pull qwen3:4b` |
+| `nomic-embed-text:v1.5` | M3 | **Pulled** 2026-11-07 (274 MB, id 0a109f422b47) | `ollama pull nomic-embed-text:v1.5` |
 | `BAAI/bge-reranker-v2-m3` (optional) | M5 | Not installed; ~2.3 GB weights + torch CPU — likely too heavy for 7.3 GB RAM alongside qwen3:4b; will be measured, not assumed | `pip install -e "apps/api[reranker]"` |
 | Playwright browsers | M7 | Not installed | `npx playwright install chromium` |
 | GitHub remote + credentials | M8 push | Not configured | owner to provide repo URL |
@@ -92,11 +92,19 @@ _Last updated: 2026-11-07_
 | `db.ps1 start` when already running | Pass (now idempotent) |
 
 ### M2 – Ingestion pipeline
-- [ ] Extraction (PDF pages, DOCX headings, TXT/MD sections) with limits/timeouts
-- [ ] Fixed + recursive chunking
-- [ ] DB-backed job worker; retries; stale-job recovery
-- [ ] Chunk inspection drawer
-- [ ] **Exit:** uploaded file becomes searchable chunks; restart and failure states tested
+- [x] Extraction (PDF pages, DOCX headings, TXT/MD sections) with limits/timeouts (child process, killed on timeout)
+- [x] Fixed + recursive chunking (ADR-005); both stored; FTS `search_tsv` generated column + GIN index
+- [x] DB-backed job worker (`dev.ps1 worker`): SKIP LOCKED claim, heartbeat, exponential retry, stale-job recovery, graceful shutdown
+- [x] Chunk inspection drawer (extraction preview, chunks per strategy), retry action, live progress polling, worker-missing banner
+- [x] **Exit:** uploaded file becomes searchable chunks; restart and failure states tested
+
+#### M2 verification record (2026-11-07)
+
+| Check | Result |
+|---|---|
+| `dev.ps1 check` | Pass. pytest 164/164 (11 worker integration tests: success, bad input, backoff, retry_after, stale recovery, re-index idempotence, delete mid-job, missing file, workspace-scoped search, heartbeat), vitest 53/53, build OK |
+| Live: worker on real PDF (3 pages), DOCX (headings + table), MD, TXT | Pass. All `ready`; ~1.7 s per document (dominated by spawning the extraction child process) |
+| Live: `GET /search?q=hotel cap` | Pass. Top hit is travel-policy.pdf, page 2 |
 
 ### M3 – Local model integration
 - [ ] Ollama health + model adapter interfaces
