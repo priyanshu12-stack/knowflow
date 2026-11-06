@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     rag_context_chars: int = Field(default=6000, ge=500, le=60_000)
     rag_min_dense_score: float = Field(default=0.45, ge=-1, le=1)
     rag_temperature: float = Field(default=0.1, ge=0, le=1)
+    rrf_k: int = Field(default=60, ge=1, le=1000)
     # Local generation is CPU-bound: queue at most this many at once (TRD §11 DoS).
     max_concurrent_generations: int = Field(default=1, ge=1, le=8)
     generation_queue_wait_seconds: float = Field(default=10, ge=0, le=600)

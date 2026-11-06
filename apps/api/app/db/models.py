@@ -364,3 +364,117 @@ class MessageFeedback(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class EvaluationDataset(Base):
+    """A versioned gold set (TRD §7, §9). Cases are immutable once a run references them."""
+
+    __tablename__ = "evaluation_datasets"
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "name", "version"),
+        CheckConstraint("task_type IN ('retrieval_qa')", name="task_type_valid"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    version: Mapped[str] = mapped_column(String(40), nullable=False)
+    task_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="retrieval_qa"
+    )
+    description: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class EvaluationCase(Base):
+    __tablename__ = "evaluation_cases"
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "external_id"),
+        CheckConstraint("split IN ('dev', 'test')", name="split_valid"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evaluation_datasets.id", ondelete="CASCADE"), nullable=False
+    )
+    external_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    split: Mapped[str] = mapped_column(String(10), nullable=False, server_default="dev")
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    reference_answer: Mapped[str | None] = mapped_column(Text)
+    answerable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    # Stable matchers {document, quote?, page?} (ADR-000 G-9) and optional raw chunk ids.
+    expected_evidence: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    expected_chunk_ids: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    expected_sql: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+
+
+class EvaluationRun(Base):
+    __tablename__ = "evaluation_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'running', 'succeeded', 'failed')", name="status_valid"
+        ),
+        Index("ix_evaluation_runs_status_created", "status", "created_at"),
+        Index("ix_evaluation_runs_dataset_created", "dataset_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    dataset_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evaluation_datasets.id", ondelete="CASCADE"), nullable=False
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    )
+    label: Mapped[str] = mapped_column(String(80), nullable=False)
+    # Everything needed to reproduce the run: retrieval knobs, models + digests, prompt, machine.
+    config: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    strategy: Mapped[str] = mapped_column(String(40), nullable=False)
+    model_id: Mapped[str | None] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="queued")
+    progress: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    total: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    aggregate_metrics: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class EvaluationResult(Base):
+    __tablename__ = "evaluation_results"
+    __table_args__ = (UniqueConstraint("run_id", "case_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evaluation_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("evaluation_cases.id", ondelete="CASCADE"), nullable=False
+    )
+    retrieved_ids: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    answer: Mapped[str | None] = mapped_column(Text)
+    metrics: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    failure_category: Mapped[str | None] = mapped_column(String(40))
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+
