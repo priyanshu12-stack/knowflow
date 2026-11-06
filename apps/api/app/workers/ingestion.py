@@ -26,7 +26,6 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Protocol
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.dialects.postgresql import insert
@@ -58,14 +57,6 @@ class IngestionError(Exception):
         self.retryable = retryable
 
 
-class ChunkEmbedder(Protocol):
-    """Embeds chunk texts (M3). Returns the embedding version id and one vector per chunk."""
-
-    def __call__(
-        self, session_factory: sessionmaker[Session], chunks: list[chunking.Chunk]
-    ) -> "EmbeddedChunks": ...
-
-
 @dataclass(frozen=True)
 class EmbeddedChunks:
     version_id: uuid.UUID
@@ -73,7 +64,12 @@ class EmbeddedChunks:
 
 
 Extractor = Callable[[Path, str, Limits, float], Extraction]
-VectorWriter = Callable[[Session, dict[tuple[str, int], uuid.UUID], EmbeddedChunks], None]
+# (session, chunk ids by (strategy, index), vectors, workspace_id) -> None
+# Embeds chunk texts (M3): (session factory, chunks, job id) -> vectors in one embedding version.
+ChunkEmbedder = Callable[[sessionmaker[Session], list[chunking.Chunk], uuid.UUID], "EmbeddedChunks"]
+VectorWriter = Callable[
+    [Session, dict[tuple[str, int], uuid.UUID], "EmbeddedChunks", uuid.UUID], None
+]
 
 
 @dataclass
@@ -245,7 +241,7 @@ def process_job(pipeline: Pipeline, job_id: uuid.UUID) -> None:
         embedded: EmbeddedChunks | None = None
         if pipeline.embedder is not None:
             _set_stage(pipeline, job_id, "embedding")
-            embedded = pipeline.embedder(pipeline.session_factory, chunks)
+            embedded = pipeline.embedder(pipeline.session_factory, chunks, job_id)
 
         _complete(pipeline, job_id, doc_id, workspace_id, extraction, chunks, embedded)
     except _GoneError:
@@ -326,7 +322,7 @@ def _complete(
             )
         session.flush()
         if embedded is not None and pipeline.store_vectors is not None:
-            pipeline.store_vectors(session, ids, embedded)
+            pipeline.store_vectors(session, ids, embedded, workspace_id)
         document.status = "ready"
         document.page_count = extraction.page_count
         document.extracted_char_count = extraction.char_count
@@ -363,9 +359,13 @@ def build_pipeline(settings: Settings | None = None) -> Pipeline:
 
     settings = settings or get_settings()
     factory = sessionmaker(bind=get_engine(), expire_on_commit=False)
-    return Pipeline(
+    pipeline = Pipeline(
         session_factory=factory, storage=FileStorage(settings.storage_root), settings=settings
     )
+    from app.modules.models.embedding_stage import attach_embedding
+
+    attach_embedding(pipeline)
+    return pipeline
 
 
 def main() -> None:

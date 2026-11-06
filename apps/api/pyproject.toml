@@ -15,9 +15,14 @@ dependencies = [
     "python-multipart>=0.0.20",
     "pypdf>=5.1,<7",
     "python-docx>=1.1,<2",
+    "pgvector>=0.3.6,<0.5",
 ]
 
 [project.optional-dependencies]
+# Optional local CrossEncoder reranker (TRD §4.2). Heavy: torch CPU + ~2.3 GB of weights.
+reranker = [
+    "sentence-transformers>=3.3,<6",
+]
 dev = [
     "pytest>=8.3",
     "ruff>=0.8",
@@ -52,9 +57,14 @@ strict = true
 plugins = ["pydantic.mypy"]
 packages = ["app"]
 
+[[tool.mypy.overrides]]
+module = ["pgvector.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
     "integration: requires a running PostgreSQL (KNOWFLOW_RUN_INTEGRATION=1)",
+    "ollama: calls real local models through Ollama (KNOWFLOW_RUN_OLLAMA=1)",
 ]
 addopts = "-ra --strict-markers"
