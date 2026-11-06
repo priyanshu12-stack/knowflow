@@ -80,7 +80,7 @@ def db_engine() -> Iterator[Engine]:
 
 def _reset(engine: Engine) -> None:
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE ingestion_jobs, documents"))
+        conn.execute(text("TRUNCATE ingestion_jobs, documents, worker_heartbeats CASCADE"))
         conn.execute(text("DELETE FROM workspaces WHERE NOT is_default"))
         conn.execute(text("UPDATE workspaces SET name = 'My workspace'"))
 

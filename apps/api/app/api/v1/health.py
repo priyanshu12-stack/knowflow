@@ -12,6 +12,7 @@ from app.core.readiness import (
     check_ollama,
     check_postgres,
     check_schema,
+    check_worker,
 )
 from app.db.session import get_engine
 
@@ -35,6 +36,7 @@ def get_readiness_probes(
         lambda: check_postgres(get_engine()),
         lambda: check_schema(get_engine()),
         lambda: check_ollama(settings),
+        lambda: check_worker(get_engine(), settings),
     ]
 
 

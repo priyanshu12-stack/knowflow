@@ -3,7 +3,7 @@ API := apps/api
 WEB := apps/web
 PY  := $(API)/.venv/bin
 
-.PHONY: setup db-up db-down migrate api web lint test check
+.PHONY: setup db-up db-down migrate api worker web lint test check
 
 setup:
 	python3 -m venv $(API)/.venv
@@ -22,6 +22,9 @@ migrate:
 
 api:
 	cd $(API) && .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+
+worker:
+	cd $(API) && .venv/bin/python -m app.workers.ingestion
 
 web:
 	cd $(WEB) && npm run dev

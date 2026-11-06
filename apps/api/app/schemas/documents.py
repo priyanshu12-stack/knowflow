@@ -11,6 +11,7 @@ from app.modules.documents.validation import FileType
 
 DuplicateAction = Literal["skip", "reindex", "new_version"]
 UploadOutcome = Literal["created", "new_version", "reindexed", "skipped"]
+ChunkStrategy = Literal["fixed", "recursive"]
 
 
 class JobOut(BaseModel):
@@ -43,8 +44,11 @@ class DocumentOut(BaseModel):
     version: int
     status: DocumentStatus
     page_count: int | None
-    # Chunks arrive with the ingestion pipeline (M2); null means "not chunked yet", not zero.
+    # Recursive-strategy chunks; null means "not processed yet", not zero.
     chunk_count: int | None
+    extracted_char_count: int | None
+    # page: citations point at pages · section: at headings · document: whole document only
+    citation_granularity: Literal["page", "section", "document"] | None
     last_error: SafeError | None
     latest_job: JobOut | None
     created_at: datetime
@@ -71,3 +75,33 @@ class SupportedFormatOut(BaseModel):
 class UploadPolicyOut(BaseModel):
     max_bytes: int
     formats: list[SupportedFormatOut]
+
+
+class ChunkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    document_id: uuid.UUID
+    strategy: ChunkStrategy
+    chunk_index: int
+    text: str
+    page_start: int | None
+    page_end: int | None
+    section_path: str | None
+    char_count: int
+    token_count: int
+    content_hash: str
+
+
+class SectionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    ordinal: int
+    page_number: int | None
+    section_path: str | None
+    text: str
+
+
+class ExtractionPreviewOut(BaseModel):
+    total_sections: int
+    sections: list[SectionOut]

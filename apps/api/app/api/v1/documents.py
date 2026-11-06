@@ -4,16 +4,22 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
+from sqlalchemy.orm import Session
 
 from app.api.deps import SessionDep, SettingsDep, StorageDep, WorkspaceDep
 from app.core.errors import AppError, ErrorResponse
+from app.db.models import Document
 from app.modules.documents import repository, service
 from app.modules.documents.status import DocumentStatus
 from app.modules.documents.validation import SUPPORTED_FORMATS
 from app.schemas.common import Page, PageParams, page_params
 from app.schemas.documents import (
+    ChunkOut,
+    ChunkStrategy,
     DocumentOut,
     DuplicateAction,
+    ExtractionPreviewOut,
+    SectionOut,
     SupportedFormatOut,
     UploadPolicyOut,
     UploadResult,
@@ -102,9 +108,11 @@ def list_documents(
     rows, total = repository.list_documents(
         session, workspace.id, limit=page.limit, offset=page.offset, status=status_filter
     )
-    jobs = repository.latest_jobs(session, [d.id for d in rows])
+    ids = [d.id for d in rows]
+    jobs = repository.latest_jobs(session, ids)
+    counts = repository.chunk_counts(session, ids)
     return Page(
-        items=[service.to_document_out(d, jobs.get(d.id)) for d in rows],
+        items=[service.to_document_out(d, jobs.get(d.id), counts.get(d.id, 0)) for d in rows],
         total=total,
         limit=page.limit,
         offset=page.offset,
@@ -118,8 +126,86 @@ def get_document(
     document = repository.get_document(session, workspace.id, document_id)
     if document is None:
         raise _not_found()
+    return _document_out(session, document)
+
+
+def _document_out(session: Session, document: Document) -> DocumentOut:
     job = repository.latest_jobs(session, [document.id]).get(document.id)
-    return service.to_document_out(document, job)
+    count = repository.chunk_counts(session, [document.id]).get(document.id, 0)
+    return service.to_document_out(document, job, count)
+
+
+@router.post(
+    "/{document_id}/retry",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=DocumentOut,
+    responses={404: {"model": ErrorResponse}},
+)
+def retry_document(
+    document_id: uuid.UUID, session: SessionDep, workspace: WorkspaceDep
+) -> DocumentOut:
+    """Queue processing again (failed ingestion, or a manual re-index). Idempotent."""
+    document = repository.get_document(session, workspace.id, document_id)
+    if document is None:
+        raise _not_found()
+    service.retry_document(session, document)
+    return _document_out(session, document)
+
+
+@router.get(
+    "/{document_id}/chunks",
+    response_model=Page[ChunkOut],
+    responses={404: {"model": ErrorResponse}},
+)
+def list_chunks(
+    document_id: uuid.UUID,
+    session: SessionDep,
+    workspace: WorkspaceDep,
+    page: Annotated[PageParams, Depends(page_params)],
+    strategy: Annotated[ChunkStrategy, Query(description="Chunking strategy")] = "recursive",
+) -> Page[ChunkOut]:
+    """Chunk inspection (PRD §5.2, DRD §7.2 document drawer)."""
+    if repository.get_document(session, workspace.id, document_id) is None:
+        raise _not_found()
+    rows, total = repository.list_chunks(
+        session, workspace.id, document_id, strategy=strategy, limit=page.limit, offset=page.offset
+    )
+    return Page(
+        items=[ChunkOut.model_validate(c) for c in rows],
+        total=total,
+        limit=page.limit,
+        offset=page.offset,
+    )
+
+
+@router.get(
+    "/{document_id}/extraction",
+    response_model=ExtractionPreviewOut,
+    responses={404: {"model": ErrorResponse}},
+)
+def extraction_preview(
+    document_id: uuid.UUID,
+    session: SessionDep,
+    workspace: WorkspaceDep,
+    limit: Annotated[int, Query(ge=1, le=50)] = 5,
+    max_chars: Annotated[int, Query(ge=100, le=5000)] = 1500,
+) -> ExtractionPreviewOut:
+    """The first extracted pages/sections, truncated, for the document drawer preview."""
+    if repository.get_document(session, workspace.id, document_id) is None:
+        raise _not_found()
+    rows, total = repository.list_sections(session, workspace.id, document_id, limit=limit)
+    return ExtractionPreviewOut(
+        total_sections=total,
+        sections=[
+            SectionOut(
+                ordinal=r.ordinal,
+                page_number=r.page_number,
+                section_path=r.section_path,
+                text=r.text if len(r.text) <= max_chars else r.text[:max_chars].rstrip() + " …",
+            )
+            for r in rows
+        ],
+    )
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)

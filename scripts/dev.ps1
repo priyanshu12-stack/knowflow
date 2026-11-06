@@ -5,12 +5,13 @@
   ./scripts/dev.ps1 setup   # create API venv + install web deps
   ./scripts/dev.ps1 migrate # apply database migrations (alembic upgrade head)
   ./scripts/dev.ps1 api     # FastAPI on http://127.0.0.1:8000
+  ./scripts/dev.ps1 worker  # ingestion worker (separate terminal)
   ./scripts/dev.ps1 web     # Next.js on http://localhost:3000
   ./scripts/dev.ps1 check   # all linters, type checks and tests
 #>
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('setup', 'migrate', 'api', 'web', 'lint', 'test', 'check')]
+    [ValidateSet('setup', 'migrate', 'api', 'worker', 'web', 'lint', 'test', 'check')]
     [string]$Command
 )
 
@@ -48,6 +49,7 @@ switch ($Command) {
     }
     'migrate' { Assert-Venv; Invoke-Step $Api { & "$Py\alembic.exe" upgrade head } }
     'api' { Assert-Venv; Invoke-Step $Api { & "$Py\uvicorn.exe" app.main:app --host 127.0.0.1 --port 8000 --reload } }
+    'worker' { Assert-Venv; Invoke-Step $Api { & "$Py\python.exe" -m app.workers.ingestion } }
     'web' { Invoke-Step $Web { npm run dev } }
     'lint' {
         Assert-Venv
