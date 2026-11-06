@@ -10,9 +10,10 @@ from app.schemas.documents import ChunkStrategy
 
 
 class RetrievalConfigIn(BaseModel):
-    mode: Literal["dense", "lexical"] = "dense"
+    mode: Literal["dense", "lexical", "hybrid"] = "dense"
     strategy: ChunkStrategy = "recursive"
     top_k: int = Field(default=6, ge=1, le=20)
+    rerank: bool = False
 
 
 class ChatQuery(BaseModel):
@@ -46,6 +47,7 @@ class RetrievalTrace(BaseModel):
     top_k: int
     candidates: int
     sources_supplied: int
+    reranked: bool = False
     timings_ms: dict[str, int]
     # (chunk id, per-retriever ranks) for every candidate considered; used by error analysis.
     candidate_ranks: list[dict[str, object]] = Field(default_factory=list)

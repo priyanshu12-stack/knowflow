@@ -27,7 +27,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { label: "Knowledge Library", href: "/library", icon: Files },
   { label: "Ask KnowFlow", href: "/ask", icon: MessagesSquare },
   { label: "SQL Analyst", href: "/sql", icon: Database, availableIn: "M6" },
-  { label: "Evaluation Lab", href: "/evaluation", icon: FlaskConical, availableIn: "M5" },
+  { label: "Evaluation Lab", href: "/evaluation", icon: FlaskConical },
 ];
 
 export const SECONDARY_NAV: NavItem[] = [

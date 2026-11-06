@@ -71,12 +71,15 @@ function asApiError(err: unknown) {
 const MODE_LABEL: Record<RetrievalMode, string> = {
   dense: "Semantic search",
   lexical: "Keyword search",
+  hybrid: "Hybrid search",
 };
 
 const TIMING_LABEL: Record<string, string> = {
   embed_query: "Embed question",
   dense: "Vector search",
   lexical: "Keyword search",
+  fusion: "Rank fusion (RRF)",
+  rerank: "Rerank",
   generation: "Generate answer",
 };
 
@@ -559,6 +562,7 @@ export function AskView() {
               >
                 <option value="dense">Semantic search</option>
                 <option value="lexical">Keyword search</option>
+                <option value="hybrid">Hybrid (semantic + keyword)</option>
               </select>
             </label>
             <label className="ml-auto flex items-center gap-2 text-[13px]">

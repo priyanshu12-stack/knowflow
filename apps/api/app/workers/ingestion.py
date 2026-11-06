@@ -81,12 +81,22 @@ class Pipeline:
     embedder: ChunkEmbedder | None = None
     # Persists vectors inside the final transaction (M3); None keeps M2 behaviour.
     store_vectors: VectorWriter | None = None
+    # Runs queued evaluation runs (M5) when there is no ingestion work. Ingestion goes first so
+    # a long benchmark never blocks newly uploaded documents for more than one case.
+    evaluations: "EvaluationHooks | None" = None
 
     @property
     def chunking_config(self) -> chunking.ChunkingConfig:
         return chunking.ChunkingConfig(
             size=self.settings.chunk_size_chars, overlap=self.settings.chunk_overlap_chars
         )
+
+
+@dataclass
+class EvaluationHooks:
+    recover: Callable[[Session], int]
+    claim: Callable[[Session], uuid.UUID | None]
+    execute: Callable[[uuid.UUID], None]
 
 
 def _now() -> datetime:
@@ -344,12 +354,19 @@ def run(pipeline: Pipeline, stop: threading.Event, *, once: bool = False) -> int
             beat(session)
             recover_stale_jobs(session, pipeline.settings)
             job_id = claim_next_job(session)
-        if job_id is None:
+            run_id = None
+            if job_id is None and pipeline.evaluations is not None:
+                pipeline.evaluations.recover(session)
+                run_id = pipeline.evaluations.claim(session)
+        if job_id is not None:
+            process_job(pipeline, job_id)
+        elif run_id is not None and pipeline.evaluations is not None:
+            pipeline.evaluations.execute(run_id)
+        else:
             if once:
                 break
             stop.wait(pipeline.settings.worker_poll_seconds)
             continue
-        process_job(pipeline, job_id)
         processed += 1
     return processed
 
@@ -365,7 +382,25 @@ def build_pipeline(settings: Settings | None = None) -> Pipeline:
     from app.modules.models.embedding_stage import attach_embedding
 
     attach_embedding(pipeline)
+    attach_evaluations(pipeline)
     return pipeline
+
+
+def attach_evaluations(pipeline: Pipeline) -> None:
+    from app.modules.evaluation import runner
+    from app.modules.models.registry import chat_model
+
+    settings = pipeline.settings
+    pipeline.evaluations = EvaluationHooks(
+        recover=lambda s: runner.recover_stale_runs(s, settings),
+        claim=runner.claim_next_run,
+        execute=lambda run_id: runner.execute_run(
+            pipeline.session_factory,
+            settings,
+            run_id,
+            chat_factory=lambda s: chat_model(s, settings),
+        ),
+    )
 
 
 def main() -> None:

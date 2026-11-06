@@ -9,6 +9,7 @@ import { CopyCommand } from "@/components/ui/copy-command";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useSystemStatus } from "@/components/system-status/system-status-provider";
+import { loadSample } from "@/lib/api/evaluation";
 import { ApiError } from "@/lib/api/client";
 import {
   fetchDocument,
@@ -117,6 +118,16 @@ export function LibraryView() {
     const id = window.setTimeout(reload, PROGRESS_POLL_MS);
     return () => window.clearTimeout(id);
   }, [processing, reloadKey, reload]);
+
+  const onLoadSample = async () => {
+    try {
+      const r = await loadSample();
+      toast.success(`Added ${r.queued} sample document${r.queued === 1 ? "" : "s"}.`);
+      reload();
+    } catch (err) {
+      toast.error(asApiError(err).message);
+    }
+  };
 
   const onRetry = async (doc: LibraryDocument) => {
     try {
@@ -239,10 +250,19 @@ export function LibraryView() {
                 will index them so you can ask questions with cited answers.
               </p>
             </div>
-            <Button onClick={() => fileInput.current?.click()}>
-              <Upload aria-hidden="true" />
-              Upload your first document
-            </Button>
+            <div className="flex flex-wrap gap-2 sm:justify-center">
+              <Button onClick={() => fileInput.current?.click()}>
+                <Upload aria-hidden="true" />
+                Upload your first document
+              </Button>
+              <Button variant="outline" onClick={() => void onLoadSample()}>
+                Load sample documents
+              </Button>
+            </div>
+            <p className="text-[13px] text-muted-foreground">
+              The sample is 5 synthetic policy documents for a fictional company, plus a labelled
+              question set for the Evaluation Lab.
+            </p>
           </div>
         )}
 
