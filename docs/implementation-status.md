@@ -10,9 +10,9 @@ _Last updated: 2026-11-06_
 
 | Item | Value |
 |---|---|
-| Active milestone | **M0 – Repository foundation** (in progress) |
-| Branch | `feat/m0-foundation` |
-| Last verified commit | — |
+| Active milestone | **M0 – Repository foundation: complete**. Next: M1 – Data foundation |
+| Branch | `main` (M0 merged from `feat/m0-foundation`) |
+| Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
 ## Development machine profile (measured 2026-11-06)
 
@@ -26,15 +26,15 @@ _Last updated: 2026-11-06_
 | Python | 3.12.7 (Anaconda) | Meets TRD ≥3.12 |
 | Node / npm | 22.13.0 / 11.6.3 | |
 | Ollama | 0.17.1, running, **no models pulled** | Pull at M3 (approved by owner) |
-| Docker | **Not installed** | Native PostgreSQL via conda — see ADR-008 |
-| PostgreSQL | Not installed; conda-forge has `postgresql` + `pgvector 0.8.6` for win-64 | ADR-008 |
+| Docker | **Not installed** | Native PostgreSQL via conda (see ADR-008). The Compose file is validated in CI only |
+| PostgreSQL | 16.15 + pgvector 0.8.6 via conda (PG 17 not solvable with pgvector on win-64) | ADR-008 |
 | Git remote | None (owner chose local commits only for now) | Push deferred |
 
 ## Missing prerequisites
 
 | Prerequisite | Needed by | Status | Setup |
 |---|---|---|---|
-| PostgreSQL 17 + pgvector | M0 | Being installed (conda env `knowflow-pg`) | `scripts/db.ps1 install` |
+| PostgreSQL 16 + pgvector | M0 | **Installed**: conda env `knowflow-pg`, PG 16.15 + pgvector 0.8.6, cluster in `data/postgres` | `scripts/db.ps1 install` / `init` / `start` |
 | `qwen3:4b` | M4 | Not pulled | `ollama pull qwen3:4b` |
 | `nomic-embed-text:v1.5` | M3 | Not pulled | `ollama pull nomic-embed-text:v1.5` |
 | `BAAI/bge-reranker-v2-m3` (optional) | M5 | Not installed; ~2.3 GB weights + torch CPU — likely too heavy for 7.3 GB RAM alongside qwen3:4b; will be measured, not assumed | `pip install -e "apps/api[reranker]"` |
@@ -48,16 +48,31 @@ _Last updated: 2026-11-06_
 - [x] Repository audit (no prior repo, no prior code)
 - [x] Requirements traceability matrix
 - [x] Implementation roadmap (this file)
-- [ ] `git init`, `.gitignore`, `.env.example`, README, CHANGELOG
-- [ ] ADRs: ADR-000 (spec priority), ADR-007 (cost boundary), ADR-008 (native Postgres), ADR-001 draft (model runtime)
-- [ ] Branch strategy doc, issue/PR templates
-- [ ] Native PostgreSQL + pgvector scripts; `infra/docker-compose.yml` for Docker hosts / CI
-- [ ] FastAPI skeleton: config, JSON logging, request_id, error envelope, `/api/v1/health/live`, `/api/v1/health/ready`
-- [ ] Next.js skeleton: Tailwind + shadcn tokens per DRD, app shell, Overview readiness (real data)
-- [ ] Lint/format/typecheck configs (ruff, mypy, ESLint, TS strict)
-- [ ] Tests: pytest (API), Vitest (web)
-- [ ] GitHub Actions CI
-- [ ] **Exit:** clean clone starts web, API and DB; health checks pass; no secrets committed
+- [x] `git init`, `.gitignore`, `.gitattributes`, `.env.example`, README, CHANGELOG
+- [x] ADRs: ADR-000 (spec priority), ADR-007 (cost boundary), ADR-008 (native Postgres), ADR-001 draft (model runtime)
+- [x] Branch strategy doc, issue/PR templates
+- [x] Native PostgreSQL + pgvector scripts; `infra/docker-compose.yml` for Docker hosts / CI
+- [x] FastAPI skeleton: config, JSON logging, request_id, error envelope, `/api/v1/health/live`, `/api/v1/health/ready`
+- [x] Next.js skeleton: Tailwind + shadcn tokens per DRD, app shell, Overview readiness (real data)
+- [x] Lint/format/typecheck configs (ruff, mypy strict, ESLint, TS strict, Prettier)
+- [x] Tests: pytest (19, incl. real-DB integration), Vitest (39)
+- [x] GitHub Actions CI written. **Not yet run**: there's no remote
+- [x] Fresh-clone verification (clone → setup → start → health). It found and fixed two PowerShell bugs (`43ca513`)
+- [x] **Exit:** clean clone starts web, API and DB; health checks pass; no secrets committed
+
+#### M0 verification record (2026-11-06)
+
+| Check | Result |
+|---|---|
+| `./scripts/dev.ps1 check` (ruff, ruff format, mypy --strict, eslint, prettier, tsc, pytest, vitest, next build) | Pass. pytest 19/19 (incl. real-DB integration), vitest 39/39, build OK |
+| Fresh clone into scratch dir → `dev.ps1 setup` → `db.ps1 init` (new cluster, port 5433) → `dev.ps1 api` + `web` | Pass. Web 200; `/api/v1/health/live` via proxy OK; `/ready` = `degraded` (PG 16.15, pgvector 0.8.6, Ollama 0.17.1 ok; models not pulled) |
+| `db.ps1 status/stop/start` with piped output | Pass (hung before `43ca513`) |
+| Paid-API guard, incl. a negative test with a banned SDK | Pass / correctly fails |
+| Secrets: `.env` ignored; DB password not present in the git index | Pass |
+| Readiness probe latency (warm) | Postgres ~1–2 ms, Ollama ~2–3 ms (was 2,200 ms before using `127.0.0.1` and a reused client) |
+| Visual check (headless Edge) at 390 / 820 / 1440 px | Pass. No horizontal overflow at a true 390 px viewport |
+| GitHub Actions | **Not run.** There's no remote yet |
+| Docker Compose `up` | **Not run.** Docker isn't installed (ADR-008); CI validates the config |
 
 ### M1 – Data foundation
 - [ ] SQLAlchemy models, Alembic migrations (workspaces, documents, ingestion_jobs)

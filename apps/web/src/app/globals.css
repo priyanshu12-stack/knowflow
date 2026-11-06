@@ -1,0 +1,119 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * KnowFlow design tokens (DRD §2). The single source for colour, radius and type.
+ * Light theme only: DRD §2 allows dark mode only after light mode is complete.
+ * Documented in docs/design-system.md; verified by src/lib/tokens.test.ts.
+ */
+:root {
+  /* DRD §2 brand tokens */
+  --kf-canvas: #f6f5f1;
+  --kf-surface: #ffffff;
+  --kf-ink: #202b33;
+  --kf-ink-secondary: #65717a;
+  --kf-teal: #245b57;
+  --kf-teal-tint: #e8f0ed;
+  --kf-border: #e3e6e3;
+  --kf-success: #287a55;
+  --kf-warning: #a66a1f;
+  --kf-danger: #b54742;
+  --kf-info: #496d8c;
+
+  /* Derived neutrals (not in DRD; quiet hover/fill surfaces) */
+  --kf-fill: #efeee9;
+
+  /* shadcn/ui semantic mapping */
+  --background: var(--kf-canvas);
+  --foreground: var(--kf-ink);
+  --card: var(--kf-surface);
+  --card-foreground: var(--kf-ink);
+  --popover: var(--kf-surface);
+  --popover-foreground: var(--kf-ink);
+  --primary: var(--kf-teal);
+  --primary-foreground: #ffffff;
+  --secondary: var(--kf-fill);
+  --secondary-foreground: var(--kf-ink);
+  --muted: var(--kf-fill);
+  --muted-foreground: var(--kf-ink-secondary);
+  --accent: var(--kf-teal-tint);
+  --accent-foreground: var(--kf-teal);
+  --destructive: var(--kf-danger);
+  --border: var(--kf-border);
+  --input: var(--kf-border);
+  --ring: var(--kf-teal);
+
+  /* DRD §4: controls 8px, cards ~11px (rounded-xl) */
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-surface: var(--kf-surface);
+  --color-success: var(--kf-success);
+  --color-warning: var(--kf-warning);
+  --color-danger: var(--kf-danger);
+  --color-info: var(--kf-info);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-sans);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+
+  /* DRD §9 motion durations */
+  --default-transition-duration: 150ms;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    /* DRD §3: 14–16px body, 1.45–1.65 line height */
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* DRD §9: respect reduced motion; remove non-essential transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

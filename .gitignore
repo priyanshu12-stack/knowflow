@@ -6,7 +6,7 @@
 *.key
 
 # ---- Local data: uploads, database volumes, model weights, benchmarks --
-data/
+data/*
 !data/.gitkeep
 *.gguf
 *.safetensors

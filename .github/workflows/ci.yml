@@ -1,0 +1,99 @@
+# TRD §3/§9: lint, typecheck, tests, build. CI never downloads LLM weights; Ollama is absent here,
+# so readiness checks that need it are covered by unit tests with fake transports.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: Zero-paid-API policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: python scripts/check_no_paid_apis.py
+      - name: No secrets or local data tracked
+        run: |
+          ! git ls-files | grep -E '(^|/)\.env$|^data/.+|\.gguf$|\.safetensors$' | grep -v '^data/.gitkeep$'
+
+  api:
+    name: API (ruff, mypy, pytest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # Same image as infra/docker-compose.yml.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: knowflow
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: knowflow
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U knowflow -d knowflow"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: knowflow
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_DB: knowflow
+      KNOWFLOW_RUN_INTEGRATION: "1"
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/requirements.lock
+      - run: pip install -e ".[dev]" -c requirements.lock
+      - name: Apply shared database init SQL
+        run: psql -v ON_ERROR_STOP=1 -h localhost -U knowflow -d knowflow -f ../../infra/postgres/init/01-extensions.sql
+        env:
+          PGPASSWORD: ci-only-password
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy
+      - run: pytest
+
+  web:
+    name: Web (eslint, tsc, vitest, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  compose:
+    name: Docker Compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: cp .env.example .env
+      - run: docker compose -f infra/docker-compose.yml --env-file .env config --quiet
