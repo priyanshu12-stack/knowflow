@@ -2,6 +2,7 @@ import os
 import re
 from collections.abc import Iterator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from alembic import command
@@ -20,16 +21,22 @@ from app.db.session import get_session
 from app.main import create_app
 from app.modules.documents.storage import FileStorage
 
+if TYPE_CHECKING:
+    from tests.fake_ollama import FakeOllama
+
 RUN_INTEGRATION = os.environ.get("KNOWFLOW_RUN_INTEGRATION") == "1"
+# Real local models (needs Ollama with the pinned models pulled). Never set in CI.
+RUN_OLLAMA = os.environ.get("KNOWFLOW_RUN_OLLAMA") == "1"
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    if RUN_INTEGRATION:
-        return
-    skip = pytest.mark.skip(reason="set KNOWFLOW_RUN_INTEGRATION=1 with a running database")
+    skip_db = pytest.mark.skip(reason="set KNOWFLOW_RUN_INTEGRATION=1 with a running database")
+    skip_models = pytest.mark.skip(reason="set KNOWFLOW_RUN_OLLAMA=1 with local models pulled")
     for item in items:
-        if "integration" in item.keywords:
-            item.add_marker(skip)
+        if "integration" in item.keywords and not RUN_INTEGRATION:
+            item.add_marker(skip_db)
+        if "ollama" in item.keywords and not RUN_OLLAMA:
+            item.add_marker(skip_models)
 
 
 @pytest.fixture
@@ -80,7 +87,12 @@ def db_engine() -> Iterator[Engine]:
 
 def _reset(engine: Engine) -> None:
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE ingestion_jobs, documents, worker_heartbeats CASCADE"))
+        conn.execute(
+            text(
+                "TRUNCATE ingestion_jobs, documents, worker_heartbeats, embedding_versions, "
+                "model_settings CASCADE"
+            )
+        )
         conn.execute(text("DELETE FROM workspaces WHERE NOT is_default"))
         conn.execute(text("UPDATE workspaces SET name = 'My workspace'"))
 
@@ -113,3 +125,21 @@ def db_client(
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def fake_ollama(monkeypatch: pytest.MonkeyPatch) -> "FakeOllama":
+    """Route every Ollama call in the app to an in-memory fake."""
+    from app.modules.models import registry
+    from app.modules.models import service as model_service
+    from app.modules.models.ollama import OllamaClient
+    from tests.fake_ollama import FakeOllama
+
+    fake = FakeOllama()
+
+    def make(base_url: str, timeout: float) -> OllamaClient:
+        return OllamaClient(base_url, timeout=timeout, transport=fake.transport())
+
+    monkeypatch.setattr(registry, "ollama_client", make)
+    monkeypatch.setattr(model_service, "ollama_client", make)
+    return fake

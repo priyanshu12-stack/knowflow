@@ -37,6 +37,15 @@ class Settings(BaseSettings):
 
     health_check_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
 
+    # Model calls (TRD §4.3): bounded timeouts and batch sizes; CPU inference can be slow.
+    embedding_batch_size: int = Field(default=16, ge=1, le=256)
+    embedding_timeout_seconds: float = Field(default=120, gt=0, le=1800)
+    generation_timeout_seconds: float = Field(default=300, gt=0, le=3600)
+    generation_num_ctx: int = Field(default=4096, ge=1024, le=131_072)
+    # Optional CPU-heavy second stage (TRD §4.2); off unless measured to help.
+    enable_reranker: bool = False
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+
     # Uploaded files (TRD §6.1, §11): a non-public directory, never served statically.
     storage_root: Path = REPO_ROOT / "data" / "storage"
     upload_max_bytes: int = Field(default=25 * 1024 * 1024, ge=1024, le=200 * 1024 * 1024)

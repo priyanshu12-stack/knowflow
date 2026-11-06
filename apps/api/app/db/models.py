@@ -7,6 +7,7 @@ The schema itself is owned by Alembic migrations (`alembic/versions`); the app n
 import uuid
 from datetime import datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -22,7 +23,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import TSVECTOR, UUID
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -217,3 +218,79 @@ class WorkerHeartbeat(Base):
     name: Mapped[str] = mapped_column(String(40), primary_key=True)
     pid: Mapped[int] = mapped_column(Integer, nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class EmbeddingVersion(Base):
+    """One embedding space: model tag + digest + measured dimension (TRD §4.2, §7, ADR-002).
+
+    Vectors from different versions are never compared. Changing the embedding model creates a
+    new version; documents embedded with an older version must be re-indexed.
+    """
+
+    __tablename__ = "embedding_versions"
+    __table_args__ = (
+        UniqueConstraint("model", "digest", "dimension"),
+        CheckConstraint("dimension BETWEEN 1 AND 16000", name="dimension_range"),
+        Index(
+            "uq_embedding_versions_single_active",
+            "is_active",
+            unique=True,
+            postgresql_where=text("is_active"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    model: Mapped[str] = mapped_column(String(200), nullable=False)
+    digest: Mapped[str] = mapped_column(String(100), nullable=False)
+    dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Task prefixes used for this model (nomic: "search_document: " / "search_query: ").
+    document_prefix: Mapped[str] = mapped_column(String(40), nullable=False, server_default="")
+    query_prefix: Mapped[str] = mapped_column(String(40), nullable=False, server_default="")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ChunkEmbedding(Base):
+    """A chunk's vector in one embedding space. Untyped `vector` so dimensions can differ by
+    version; exact (sequential) cosine search is the measured baseline (TRD §3)."""
+
+    __tablename__ = "chunk_embeddings"
+    __table_args__ = (
+        Index("ix_chunk_embeddings_version_workspace", "embedding_version_id", "workspace_id"),
+    )
+
+    chunk_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chunks.id", ondelete="CASCADE"), primary_key=True
+    )
+    embedding_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("embedding_versions.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    )
+    embedding: Mapped[list[float]] = mapped_column(Vector(), nullable=False)
+
+
+class ModelSettings(Base):
+    """User-selected local models (PRD §5.6). One row; absent means "use .env defaults"."""
+
+    __tablename__ = "model_settings"
+    __table_args__ = (CheckConstraint("id = 1", name="single_row"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    generation_model: Mapped[str] = mapped_column(String(200), nullable=False)
+    embedding_model: Mapped[str] = mapped_column(String(200), nullable=False)
+    reranker_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    # Validation evidence captured when the settings were saved.
+    validation: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

@@ -10,7 +10,7 @@ _Last updated: 2026-11-07_
 
 | Item | Value |
 |---|---|
-| Active milestone | **M2 – Ingestion pipeline: complete**. Next: M3 – Local model integration |
+| Active milestone | **M3 – Local model integration: complete**. Next: M4 – Basic RAG |
 | Branch | `main` (M0 merged from `feat/m0-foundation`) |
 | Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
@@ -107,10 +107,19 @@ _Last updated: 2026-11-07_
 | Live: `GET /search?q=hotel cap` | Pass. Top hit is travel-policy.pdf, page 2 |
 
 ### M3 – Local model integration
-- [ ] Ollama health + model adapter interfaces
-- [ ] Nomic embedding adapter, dimension probe, embedding_versions, batched pgvector storage
-- [ ] Models & Settings page
-- [ ] **Exit:** embeddings generated locally; missing model gives actionable instructions; no external API
+- [x] Ollama health + model adapter interfaces (`EmbeddingModel`, `ChatModel`; bounded timeouts, one retry on 5xx)
+- [x] Nomic embedding adapter (task prefixes), dimension probe, `embedding_versions`, batched pgvector storage (ADR-002)
+- [x] Models & Settings page: runtime, installed models, selection, validate (real probes), embedding-change warning, re-index all
+- [x] **Exit:** embeddings generated locally; missing model gives actionable instructions; no external API
+
+#### M3 verification record (2026-11-07)
+
+| Check | Result |
+|---|---|
+| `dev.ps1 check` | Pass. pytest 182 passed + 2 opt-in real-model tests skipped; vitest 59/59; build OK |
+| `KNOWFLOW_RUN_OLLAMA=1` real-model tests | Pass. nomic dimension 768; qwen3:4b returns schema-valid JSON |
+| Live re-index of 4 documents with the real embedding model | Pass. All ready, 0 needing re-index, active version 768-d |
+| Live dense search on paraphrases ("accommodation per night") | Finds travel-policy.pdf p.2 (cosine 0.745); lexical finds nothing. Not a quality claim; M5 measures it |
 
 ### M4 – Basic RAG
 - [ ] Dense retrieval, context packing, versioned prompts, Qwen generation, Pydantic response

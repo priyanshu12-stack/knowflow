@@ -31,7 +31,7 @@ export const PRIMARY_NAV: NavItem[] = [
 ];
 
 export const SECONDARY_NAV: NavItem[] = [
-  { label: "Models & Settings", href: "/settings", icon: Cpu, availableIn: "M3" },
+  { label: "Models & Settings", href: "/settings", icon: Cpu },
   { label: "Activity", href: "/activity", icon: Activity, availableIn: "M7" },
   { label: "Help", href: "/help", icon: BookOpen, availableIn: "M8" },
 ];
