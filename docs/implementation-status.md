@@ -10,9 +10,9 @@ _Last updated: 2026-11-06_
 
 | Item | Value |
 |---|---|
-| Active milestone | **M0 – Repository foundation** (in progress) |
-| Branch | `feat/m0-foundation` |
-| Last verified commit | `8ffbf42` docs (main) |
+| Active milestone | **M0 – Repository foundation: complete**. Next: M1 – Data foundation |
+| Branch | `main` (M0 merged from `feat/m0-foundation`) |
+| Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
 ## Development machine profile (measured 2026-11-06)
 
@@ -57,8 +57,22 @@ _Last updated: 2026-11-06_
 - [x] Lint/format/typecheck configs (ruff, mypy strict, ESLint, TS strict, Prettier)
 - [x] Tests: pytest (19, incl. real-DB integration), Vitest (39)
 - [x] GitHub Actions CI written. **Not yet run**: there's no remote
-- [ ] Fresh-clone verification (clone → setup → start → health)
-- [ ] **Exit:** clean clone starts web, API and DB; health checks pass; no secrets committed
+- [x] Fresh-clone verification (clone → setup → start → health). It found and fixed two PowerShell bugs (`43ca513`)
+- [x] **Exit:** clean clone starts web, API and DB; health checks pass; no secrets committed
+
+#### M0 verification record (2026-11-06)
+
+| Check | Result |
+|---|---|
+| `./scripts/dev.ps1 check` (ruff, ruff format, mypy --strict, eslint, prettier, tsc, pytest, vitest, next build) | Pass. pytest 19/19 (incl. real-DB integration), vitest 39/39, build OK |
+| Fresh clone into scratch dir → `dev.ps1 setup` → `db.ps1 init` (new cluster, port 5433) → `dev.ps1 api` + `web` | Pass. Web 200; `/api/v1/health/live` via proxy OK; `/ready` = `degraded` (PG 16.15, pgvector 0.8.6, Ollama 0.17.1 ok; models not pulled) |
+| `db.ps1 status/stop/start` with piped output | Pass (hung before `43ca513`) |
+| Paid-API guard, incl. a negative test with a banned SDK | Pass / correctly fails |
+| Secrets: `.env` ignored; DB password not present in the git index | Pass |
+| Readiness probe latency (warm) | Postgres ~1–2 ms, Ollama ~2–3 ms (was 2,200 ms before using `127.0.0.1` and a reused client) |
+| Visual check (headless Edge) at 390 / 820 / 1440 px | Pass. No horizontal overflow at a true 390 px viewport |
+| GitHub Actions | **Not run.** There's no remote yet |
+| Docker Compose `up` | **Not run.** Docker isn't installed (ADR-008); CI validates the config |
 
 ### M1 – Data foundation
 - [ ] SQLAlchemy models, Alembic migrations (workspaces, documents, ingestion_jobs)

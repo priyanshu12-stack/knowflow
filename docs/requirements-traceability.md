@@ -244,7 +244,7 @@ milestone → implementation module → test → status.
 | REP-03 | TRD/PRD/DRD stored in docs/ and matching implemented product | PRD §11; TRD §14 | M0/M8 | `docs/TRD.md`, `PRD.md`, `DRD.md` via `scripts/specs_to_md.py` | — | Done |
 | REP-04 | ADR-001 … ADR-007 | TRD §16; PRD §11 | M0→M6 | ADR-000, -001 (proposed), -007, -008 | — | Partial |
 | REP-05 | Feature branch per milestone; conventional commits; no force-push/history rewrite | PRD §12 | all | git | — | In progress |
-| REP-06 | Clean clone starts with documented commands; Ollama setup explicit | TRD §17; PRD §13 | M0/M8 | README + scripts; fresh-clone check pending | manual fresh-clone check | Partial |
+| REP-06 | Clean clone starts with documented commands; Ollama setup explicit | TRD §17; PRD §13 | M0/M8 | README + `scripts/dev.ps1`, `scripts/db.ps1` | fresh-clone check 2026-11-06 (see implementation-status) | Done |
 | REP-07 | Migrations run from empty DB and upgrade from previous release | PRD §11; TRD §17 | M1/M8 | Alembic | CI migration job | Not started |
 | REP-08 | Reproducible, clearly synthetic/public demo seed | PRD §11 | M8 | `scripts/seed_demo.py` | seed test | Not started |
 | REP-09 | Demo video, release tag only after acceptance checks | PRD §7 M8, §11 | M8 | — | — | Not started |

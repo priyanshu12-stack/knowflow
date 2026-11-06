@@ -9,7 +9,7 @@ All inference runs locally through [Ollama](https://ollama.com). **No paid API, 
 model endpoint is required** ([ADR-007](docs/decisions/ADR-007-local-only-cost-boundary.md)).
 Free model weights still cost your CPU/GPU time, RAM, disk and electricity.
 
-> **Status: early development.** Milestone M0 (repository foundation) is in progress.
+> **Status: early development.** Milestone M0 (repository foundation) is complete. M1 (document upload) is next.
 > What works today: API health/readiness, and a web shell that reports real database and model
 > readiness. Progress lives in [docs/implementation-status.md](docs/implementation-status.md).
 > No benchmark has been run yet, so all quality metrics are **NOT MEASURED**.

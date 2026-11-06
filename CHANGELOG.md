@@ -14,3 +14,6 @@ versioning follows SemVer once a release is tagged (PRD §11: only after accepta
   - Native PostgreSQL 16 + pgvector scripts (`scripts/db.ps1`), Docker Compose for Docker hosts, `scripts/dev.ps1` and a Makefile.
   - GitHub Actions CI, the zero-paid-API guard (`scripts/check_no_paid_apis.py`), and issue/PR templates.
   - Docs: design system, branch strategy, architecture overview, evaluation policy.
+
+### Fixed
+- PowerShell scripts failed (`setup`) or hung (`pg_ctl start`) when their output was redirected. Both were found by the fresh-clone check.
