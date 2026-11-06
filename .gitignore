@@ -1,0 +1,57 @@
+# ---- Secrets & local configuration -------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Local data: uploads, database volumes, model weights, benchmarks --
+data/
+!data/.gitkeep
+*.gguf
+*.safetensors
+*.bin
+*.onnx
+/models/
+pgdata/
+docs/evaluation/runs/private/
+*.dump
+*.sqlite
+*.db
+
+# ---- Python -------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ---- Node / Next.js -----------------------------------------------------
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# ---- Logs ---------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+
+# ---- OS / editors -------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
