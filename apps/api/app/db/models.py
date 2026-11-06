@@ -477,4 +477,3 @@ class EvaluationResult(Base):
     failure_category: Mapped[str | None] = mapped_column(String(40))
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     error: Mapped[str | None] = mapped_column(Text)
-
