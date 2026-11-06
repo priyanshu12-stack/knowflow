@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, Copy, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CopyCommand } from "@/components/ui/copy-command";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { CHECK_HINTS, CHECK_LABELS, type DependencyCheck } from "@/lib/api/health";
@@ -14,43 +14,6 @@ function checkTone(check: DependencyCheck): { tone: StatusTone; label: string } 
   if (check.state === "ok") return { tone: "ok", label: "Ready" };
   if (check.state === "missing") return { tone: "warning", label: "Needs setup" };
   return { tone: "danger", label: "Unavailable" };
-}
-
-function CopyCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(command);
-      setCopied(true);
-      setFailed(false);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setFailed(true);
-    }
-  };
-  return (
-    <div className="mt-2 flex max-w-full items-center gap-1 rounded-lg border bg-background pl-3">
-      <code className="min-w-0 flex-1 overflow-x-auto py-1.5 font-mono text-[12.5px] whitespace-nowrap">
-        {command}
-      </code>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={copy}
-        aria-label={copied ? "Command copied" : `Copy command: ${command}`}
-      >
-        {copied ? (
-          <Check aria-hidden="true" className="text-success" />
-        ) : (
-          <Copy aria-hidden="true" />
-        )}
-      </Button>
-      <span role="status" className="sr-only">
-        {copied ? "Copied to clipboard" : failed ? "Copy failed; select the text instead" : ""}
-      </span>
-    </div>
-  );
 }
 
 function CheckRow({ check }: { check: DependencyCheck }) {
@@ -80,10 +43,15 @@ function CheckRow({ check }: { check: DependencyCheck }) {
 function summaryLine(checks: DependencyCheck[]): string {
   const failing = checks.filter((c) => c.state !== "ok");
   if (failing.length === 0) return "All local services and models are ready.";
-  const requiredDown = failing.filter((c) => c.required);
-  if (requiredDown.length > 0) {
-    const names = requiredDown.map((c) => CHECK_LABELS[c.name] ?? c.name).join(", ");
-    return `${names} ${requiredDown.length === 1 ? "is" : "are"} unavailable. KnowFlow cannot work until ${requiredDown.length === 1 ? "it is" : "they are"} running.`;
+  const label = (list: DependencyCheck[]) =>
+    list.map((c) => CHECK_LABELS[c.name] ?? c.name).join(", ");
+  const down = failing.filter((c) => c.required && c.state === "unavailable");
+  if (down.length > 0) {
+    return `${label(down)} ${down.length === 1 ? "is" : "are"} unavailable. KnowFlow cannot work until ${down.length === 1 ? "it is" : "they are"} running.`;
+  }
+  const setup = failing.filter((c) => c.required);
+  if (setup.length > 0) {
+    return `${label(setup)} ${setup.length === 1 ? "needs" : "need"} setup. Run the command below, then select Re-check.`;
   }
   return `Services are running. ${failing.length} model${failing.length === 1 ? " is" : "s are"} not installed yet, so indexing and answers are unavailable until ${failing.length === 1 ? "it is" : "they are"} pulled.`;
 }
@@ -126,7 +94,7 @@ export function ReadinessPanel() {
 
       {status.kind === "loading" && (
         <ul aria-label="Loading dependency checks" className="divide-y">
-          {Array.from({ length: 5 }, (_, i) => (
+          {Array.from({ length: 6 }, (_, i) => (
             <li
               key={i}
               className="grid grid-cols-1 gap-x-6 gap-y-2 px-5 py-4 sm:grid-cols-[200px_140px_minmax(0,1fr)]"

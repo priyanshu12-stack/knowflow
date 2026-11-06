@@ -19,11 +19,15 @@ describe("SidebarNav", () => {
     expect(overview).toHaveAttribute("aria-current", "page");
     expect(overview).toHaveAttribute("href", "/");
 
+    const library = screen.getByRole("link", { name: "Knowledge Library" });
+    expect(library).toHaveAttribute("href", "/library");
+    expect(library).not.toHaveAttribute("aria-current");
+
     // Unbuilt pages are disabled with an explanation, never a dead link (DRD §13, §15).
-    const library = screen.getByRole("link", { name: /Knowledge Library/ });
-    expect(library).toHaveAttribute("aria-disabled", "true");
-    expect(library).not.toHaveAttribute("href");
-    expect(library).toHaveTextContent("ships in milestone M1");
+    const ask = screen.getByRole("link", { name: /Ask KnowFlow/ });
+    expect(ask).toHaveAttribute("aria-disabled", "true");
+    expect(ask).not.toHaveAttribute("href");
+    expect(ask).toHaveTextContent("ships in milestone M4");
   });
 });
 

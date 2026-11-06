@@ -62,6 +62,7 @@ export function fetchReadiness(signal?: AbortSignal) {
 export const CHECK_LABELS: Record<string, string> = {
   postgres: "PostgreSQL",
   pgvector: "pgvector extension",
+  database_schema: "Database schema",
   ollama: "Ollama runtime",
   generation_model: "Generation model",
   embedding_model: "Embedding model",

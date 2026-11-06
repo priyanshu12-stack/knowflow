@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { AppShell } from "@/components/shell/app-shell";
 import { SystemStatusProvider } from "@/components/system-status/system-status-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <SystemStatusProvider>
             <AppShell>{children}</AppShell>
           </SystemStatusProvider>
+          <Toaster position="bottom-right" />
         </TooltipProvider>
       </body>
     </html>

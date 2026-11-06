@@ -24,7 +24,7 @@ export interface NavItem {
 // DRD §5 icon mapping, DRD §6.1 order.
 export const PRIMARY_NAV: NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
-  { label: "Knowledge Library", href: "/library", icon: Files, availableIn: "M1" },
+  { label: "Knowledge Library", href: "/library", icon: Files },
   { label: "Ask KnowFlow", href: "/ask", icon: MessagesSquare, availableIn: "M4" },
   { label: "SQL Analyst", href: "/sql", icon: Database, availableIn: "M6" },
   { label: "Evaluation Lab", href: "/evaluation", icon: FlaskConical, availableIn: "M5" },

@@ -1,14 +1,16 @@
-import { CircleCheck, CircleX, LoaderCircle, TriangleExclamationPoint } from "lucide-react";
+import { CircleCheck, CircleX, Clock, LoaderCircle, TriangleExclamationPoint } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-export type StatusTone = "ok" | "warning" | "danger" | "pending";
+export type StatusTone = "ok" | "warning" | "danger" | "pending" | "neutral";
 
 const ICONS = {
   ok: { Icon: CircleCheck, className: "text-success" },
   warning: { Icon: TriangleExclamationPoint, className: "text-warning" },
   danger: { Icon: CircleX, className: "text-danger" },
   pending: { Icon: LoaderCircle, className: "text-muted-foreground motion-safe:animate-spin" },
+  // Waiting, not working: no spinner (DRD §8 "neutral first").
+  neutral: { Icon: Clock, className: "text-muted-foreground" },
 } as const;
 
 /**
