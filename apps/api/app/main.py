@@ -7,6 +7,7 @@ from app.core.config import Settings, get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import register_request_middleware
+from app.core.upload_limit import UploadSizeLimitMiddleware
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -21,6 +22,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
     )
     register_error_handlers(app)
+    # Added before the request middleware so it runs inside it (request_id is already set).
+    app.add_middleware(
+        UploadSizeLimitMiddleware,
+        path="/api/v1/documents",
+        max_file_bytes=settings.upload_max_bytes,
+    )
     register_request_middleware(app)
     app.include_router(v1_router)
     return app
