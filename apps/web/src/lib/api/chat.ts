@@ -1,7 +1,7 @@
 import { requestJson } from "./client";
 import { arr, bool, int, nullableInt, nullableStr, obj, str, type Obj } from "./validate";
 
-export type RetrievalMode = "dense" | "lexical";
+export type RetrievalMode = "dense" | "lexical" | "hybrid";
 
 export interface Citation {
   number: number;
