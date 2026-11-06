@@ -477,3 +477,90 @@ class EvaluationResult(Base):
     failure_category: Mapped[str | None] = mapped_column(String(40))
     latency_ms: Mapped[int | None] = mapped_column(Integer)
     error: Mapped[str | None] = mapped_column(Text)
+
+
+class SqlConnection(Base):
+    """A read-only database the SQL Analyst may query (TRD §7). The secret is write-only:
+    stored encrypted (Fernet) and never returned by the API (ADR-006, ADR-000 G-4)."""
+
+    __tablename__ = "sql_connections"
+    __table_args__ = (
+        CheckConstraint("db_type IN ('postgresql')", name="db_type_valid"),
+        UniqueConstraint("workspace_id", "display_name"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    )
+    display_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    db_type: Mapped[str] = mapped_column(String(20), nullable=False, server_default="postgresql")
+    host: Mapped[str] = mapped_column(String(255), nullable=False)
+    port: Mapped[int] = mapped_column(Integer, nullable=False)
+    database_name: Mapped[str] = mapped_column(String(63), nullable=False)
+    username: Mapped[str] = mapped_column(String(63), nullable=False)
+    encrypted_secret_ref: Mapped[str] = mapped_column(Text, nullable=False)
+    allowed_schemas: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class SqlGlossaryTerm(Base):
+    """Business definitions shown to the user and the model (TRD §10). `ambiguous` terms carry
+    2-4 options and always trigger a clarification until the user picks one."""
+
+    __tablename__ = "sql_glossary_terms"
+    __table_args__ = (
+        UniqueConstraint("connection_id", "term"),
+        CheckConstraint("kind IN ('definition', 'ambiguous')", name="kind_valid"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    connection_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sql_connections.id", ondelete="CASCADE"), nullable=False
+    )
+    term: Mapped[str] = mapped_column(String(80), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    definition: Mapped[str | None] = mapped_column(Text)
+    synonyms: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    options: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+
+
+class SqlQueryLog(Base):
+    """Every SQL Analyst turn with its safety decision, for reproducibility (TRD §10). String
+    literals in stored SQL are redacted; credentials are never stored here."""
+
+    __tablename__ = "sql_queries"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('clarification_required', 'executed', 'rejected', 'failed', 'unsupported')",
+            name="status_valid",
+        ),
+        Index("ix_sql_queries_workspace_created", "workspace_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    )
+    connection_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sql_connections.id", ondelete="CASCADE"), nullable=False
+    )
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    clarification: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    sql_redacted: Mapped[str | None] = mapped_column(Text)
+    decision: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    row_count: Mapped[int | None] = mapped_column(Integer)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
