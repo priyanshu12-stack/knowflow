@@ -14,6 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
+from app.db.migrations import current_heads, expected_heads
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +83,41 @@ def check_postgres(engine: Engine) -> list[DependencyCheck]:
         )
     )
     return checks
+
+
+def check_schema(engine: Engine) -> list[DependencyCheck]:
+    """Is the database migrated to the revision this code expects? (STK-20)"""
+    try:
+        with engine.connect() as conn:
+            current = current_heads(conn)
+    except SQLAlchemyError:
+        return []  # connectivity is already reported by check_postgres
+    expected = expected_heads()
+    if current == expected:
+        return [
+            DependencyCheck(
+                name="database_schema",
+                state="ok",
+                required=True,
+                detail=f"Schema at revision {', '.join(sorted(current))}.",
+            )
+        ]
+    if not current:
+        detail = "The database schema hasn't been created yet."
+    else:
+        detail = (
+            f"Schema is at {', '.join(sorted(current))}; "
+            f"this version expects {', '.join(sorted(expected))}."
+        )
+    return [
+        DependencyCheck(
+            name="database_schema",
+            state="missing",
+            required=True,
+            detail=detail,
+            remediation="./scripts/dev.ps1 migrate",
+        )
+    ]
 
 
 @lru_cache(maxsize=4)

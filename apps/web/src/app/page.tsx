@@ -1,9 +1,10 @@
 import { CurrentDate } from "@/components/overview/current-date";
+import { WorkspaceSummary } from "@/components/overview/workspace-summary";
 import { ReadinessPanel } from "@/components/system-status/readiness-panel";
 
 /**
- * DRD §7.1 Overview. Only regions backed by real data are shown: document metrics, activity
- * and quick actions appear once their features exist (M1+), never as placeholder counts.
+ * DRD §7.1 Overview. Only regions backed by real data are shown: counts come from the API and
+ * activity / further quick actions appear once their features exist, never as placeholders.
  */
 export default function OverviewPage() {
   return (
@@ -20,6 +21,7 @@ export default function OverviewPage() {
           before adding documents.
         </p>
       </header>
+      <WorkspaceSummary />
       <ReadinessPanel />
     </div>
   );

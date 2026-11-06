@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel
 
 from app.core.config import Settings, get_settings
-from app.core.readiness import DependencyCheck, ReadinessProbe, check_ollama, check_postgres
+from app.core.readiness import (
+    DependencyCheck,
+    ReadinessProbe,
+    check_ollama,
+    check_postgres,
+    check_schema,
+)
 from app.db.session import get_engine
 
 router = APIRouter(prefix="/health", tags=["health"])
@@ -25,7 +31,11 @@ class ReadyResponse(BaseModel):
 def get_readiness_probes(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> list[ReadinessProbe]:
-    return [lambda: check_postgres(get_engine()), lambda: check_ollama(settings)]
+    return [
+        lambda: check_postgres(get_engine()),
+        lambda: check_schema(get_engine()),
+        lambda: check_ollama(settings),
+    ]
 
 
 @router.get("/live", response_model=LiveResponse)

@@ -4,13 +4,13 @@ Resume point for any new session: read this file, then `git log --oneline` and `
 Milestones follow PRD §7 exactly. A milestone is complete only when its exit criteria are verified,
 tests pass, docs are updated and the work is committed.
 
-_Last updated: 2026-11-06_
+_Last updated: 2026-11-07_
 
 ## Current state
 
 | Item | Value |
 |---|---|
-| Active milestone | **M0 – Repository foundation: complete**. Next: M1 – Data foundation |
+| Active milestone | **M1 – Data foundation: complete**. Next: M2 – Ingestion pipeline |
 | Branch | `main` (M0 merged from `feat/m0-foundation`) |
 | Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
@@ -75,12 +75,21 @@ _Last updated: 2026-11-06_
 | Docker Compose `up` | **Not run.** Docker isn't installed (ADR-008); CI validates the config |
 
 ### M1 – Data foundation
-- [ ] SQLAlchemy models, Alembic migrations (workspaces, documents, ingestion_jobs)
-- [ ] Default workspace + rename
-- [ ] Filesystem storage service (generated keys, checksum, path-root verification)
-- [ ] Upload API with extension/MIME/signature/size validation; duplicate checksum handling
-- [ ] Knowledge Library UI (dropzone, table, delete confirmation, states)
-- [ ] **Exit:** upload PDF/DOCX/TXT/MD; metadata persists; duplicate handled; file stored safely
+- [x] SQLAlchemy models, Alembic migrations (workspaces, documents, ingestion_jobs)
+- [x] Default workspace + rename
+- [x] Filesystem storage service (generated keys, checksum, path-root verification)
+- [x] Upload API with extension/MIME/signature/size validation; duplicate checksum handling
+- [x] Knowledge Library UI (dropzone, table, delete confirmation, states)
+- [x] **Exit:** upload PDF/DOCX/TXT/MD; metadata persists; duplicate handled; file stored safely
+
+#### M1 verification record (2026-11-07)
+
+| Check | Result |
+|---|---|
+| `dev.ps1 check` | Pass. pytest 137/137 (incl. workspace-isolation integration), vitest 49/49, build OK |
+| Live API: upload `.md` → 202 queued; same file → 409 `duplicate_document`; fake PDF → 415 `signature_mismatch` | Pass |
+| Library page in headless Edge with real data | Pass |
+| `db.ps1 start` when already running | Pass (now idempotent) |
 
 ### M2 – Ingestion pipeline
 - [ ] Extraction (PDF pages, DOCX headings, TXT/MD sections) with limits/timeouts

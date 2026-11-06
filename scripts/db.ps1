@@ -73,6 +73,9 @@ function Invoke-Psql($bin, $cfg, $database, [string[]]$extra) {
 }
 
 function Start-Db($bin, $cfg) {
+    # Idempotent: a running cluster is success, not an error (pg_ctl status exits 0 when running).
+    & (Join-Path $bin 'pg_ctl.exe') -D $DataDir status *> $null
+    if ($LASTEXITCODE -eq 0) { Write-Host 'PostgreSQL is already running.'; return }
     # pg_ctl starts the server through a cmd wrapper that inherits pg_ctl's stdout/stderr. If those
     # are a pipe (CI, `| Select-Object`), the long-lived server keeps the pipe open and the caller
     # hangs. Point pg_ctl's handles at files instead, and wait for pg_ctl only, not the server.

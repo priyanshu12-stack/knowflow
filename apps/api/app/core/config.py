@@ -37,6 +37,10 @@ class Settings(BaseSettings):
 
     health_check_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
 
+    # Uploaded files (TRD §6.1, §11): a non-public directory, never served statically.
+    storage_root: Path = REPO_ROOT / "data" / "storage"
+    upload_max_bytes: int = Field(default=25 * 1024 * 1024, ge=1024, le=200 * 1024 * 1024)
+
     @property
     def database_url(self) -> URL:
         """SQLAlchemy URL built from parts so the password is never string-formatted into logs."""

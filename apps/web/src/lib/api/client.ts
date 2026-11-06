@@ -1,6 +1,7 @@
 /**
  * Minimal typed client for the KnowFlow API. The browser always calls same-origin `/api/v1/*`;
- * next.config.ts rewrites those requests to FastAPI.
+ * next.config.ts rewrites those requests to FastAPI. Every response body is validated by a
+ * caller-supplied parser: API output is untrusted input.
  */
 
 export class ApiError extends Error {
@@ -9,6 +10,8 @@ export class ApiError extends Error {
     message: string,
     readonly status: number | null,
     readonly requestId: string | null,
+    /** Structured, user-safe context from the API (e.g. the existing document on a duplicate). */
+    readonly details: Record<string, unknown> | null = null,
   ) {
     super(message);
     this.name = "ApiError";
@@ -16,7 +19,7 @@ export class ApiError extends Error {
 }
 
 interface ErrorEnvelope {
-  error: { code: string; message: string; request_id?: string };
+  error: { code: string; message: string; request_id?: string; details?: unknown };
 }
 
 function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
@@ -30,35 +33,72 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
   );
 }
 
+/** Turn a failed response (any transport) into an ApiError. */
+export function toApiError(status: number, body: unknown, requestId: string | null): ApiError {
+  if (isErrorEnvelope(body)) {
+    const { details } = body.error;
+    return new ApiError(
+      body.error.code,
+      body.error.message,
+      status,
+      body.error.request_id ?? requestId,
+      typeof details === "object" && details !== null && !Array.isArray(details)
+        ? (details as Record<string, unknown>)
+        : null,
+    );
+  }
+  // Next's proxy answers 500 without our envelope when FastAPI is down.
+  return new ApiError(
+    status >= 500 ? "api_unreachable" : "http_error",
+    status >= 500 ? "The KnowFlow API is not reachable." : `Request failed (${status}).`,
+    status,
+    requestId,
+  );
+}
+
+export function invalidResponse(status: number, requestId: string | null): ApiError {
+  return new ApiError(
+    "invalid_response",
+    "The API returned data in an unexpected format.",
+    status,
+    requestId,
+  );
+}
+
 export interface ApiResponse<T> {
   status: number;
   data: T;
   requestId: string | null;
 }
 
-/**
- * GET JSON. `acceptStatuses` lets callers treat documented non-2xx bodies (e.g. readiness 503)
- * as data rather than errors.
- */
-export async function getJson<T>(
+export interface RequestOptions {
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  /** Serialized as a JSON request body. */
+  json?: unknown;
+  timeoutMs?: number;
+  /** Documented non-2xx statuses whose body is data, not an error (e.g. readiness 503). */
+  acceptStatuses?: number[];
+  signal?: AbortSignal;
+}
+
+export async function requestJson<T>(
   path: string,
   parse: (raw: unknown) => T,
-  {
-    timeoutMs = 10_000,
-    acceptStatuses = [] as number[],
-    signal,
-  }: {
-    timeoutMs?: number;
-    acceptStatuses?: number[];
-    signal?: AbortSignal;
-  } = {},
+  { method = "GET", json, timeoutMs = 10_000, acceptStatuses = [], signal }: RequestOptions = {},
 ): Promise<ApiResponse<T>> {
   const timeout = AbortSignal.timeout(timeoutMs);
   const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (json !== undefined) headers["Content-Type"] = "application/json";
 
   let res: Response;
   try {
-    res = await fetch(path, { headers: { Accept: "application/json" }, signal: combined });
+    res = await fetch(path, {
+      method,
+      headers,
+      body: json === undefined ? undefined : JSON.stringify(json),
+      signal: combined,
+    });
   } catch (cause) {
     if (timeout.aborted) {
       throw new ApiError("timeout", "The KnowFlow API did not respond in time.", null, null);
@@ -69,37 +109,29 @@ export async function getJson<T>(
 
   const requestId = res.headers.get("X-Request-ID");
   let body: unknown = null;
-  try {
-    body = await res.json();
-  } catch {
-    // Non-JSON body (e.g. proxy error page); handled below.
+  if (res.status !== 204) {
+    try {
+      body = await res.json();
+    } catch {
+      // Non-JSON body (e.g. proxy error page); handled below.
+    }
   }
 
   if (res.ok || acceptStatuses.includes(res.status)) {
     try {
       return { status: res.status, data: parse(body), requestId };
     } catch {
-      throw new ApiError(
-        "invalid_response",
-        "The API returned data in an unexpected format.",
-        res.status,
-        requestId,
-      );
+      throw invalidResponse(res.status, requestId);
     }
   }
-  if (isErrorEnvelope(body)) {
-    throw new ApiError(
-      body.error.code,
-      body.error.message,
-      res.status,
-      body.error.request_id ?? requestId,
-    );
-  }
-  // Next's proxy answers 500 without our envelope when FastAPI is down.
-  throw new ApiError(
-    res.status >= 500 ? "api_unreachable" : "http_error",
-    res.status >= 500 ? "The KnowFlow API is not reachable." : `Request failed (${res.status}).`,
-    res.status,
-    requestId,
-  );
+  throw toApiError(res.status, body, requestId);
+}
+
+/** GET JSON (kept as the common case). */
+export function getJson<T>(
+  path: string,
+  parse: (raw: unknown) => T,
+  options: Omit<RequestOptions, "method" | "json"> = {},
+): Promise<ApiResponse<T>> {
+  return requestJson(path, parse, options);
 }
