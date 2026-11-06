@@ -20,6 +20,9 @@ $Web = Join-Path $RepoRoot 'apps\web'
 $Py = Join-Path $Api '.venv\Scripts'
 
 function Invoke-Step([string]$Dir, [scriptblock]$Block) {
+    # Windows PowerShell 5.1 turns native stderr into terminating errors under 'Stop' when output
+    # is redirected (CI, logs). Run tools with 'Continue' and judge success by exit code only.
+    $ErrorActionPreference = 'Continue'
     Push-Location $Dir
     try {
         & $Block

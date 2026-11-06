@@ -22,6 +22,14 @@ $DataDir = Join-Path $RepoRoot 'data\postgres'
 $LogFile = Join-Path $RepoRoot 'data\postgres.log'
 $EnvName = 'knowflow-pg'
 
+# Windows PowerShell 5.1 turns native stderr into terminating errors under 'Stop' when output is
+# redirected (CI, logs). Run native tools with 'Continue' and judge success by exit code only.
+function Invoke-Native([string]$What, [scriptblock]$Block) {
+    $ErrorActionPreference = 'Continue'
+    & $Block
+    if ($LASTEXITCODE -ne 0) { throw "$What failed (exit $LASTEXITCODE)" }
+}
+
 function Read-DotEnv {
     $path = Join-Path $RepoRoot '.env'
     if (-not (Test-Path $path)) {
@@ -41,7 +49,9 @@ function Read-DotEnv {
 function Get-PgBin {
     $pgHome = $env:KNOWFLOW_PG_HOME
     if (-not $pgHome) {
-        $base = (& conda info --base).Trim()
+        $ErrorActionPreference = 'Continue'
+        $base = (& conda info --base | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or -not $base) { throw 'conda not found. Install Anaconda/Miniconda or set KNOWFLOW_PG_HOME.' }
         $pgHome = Join-Path $base "envs\$EnvName"
     }
     $bin = Join-Path $pgHome 'Library\bin'
@@ -54,23 +64,35 @@ function Get-PgBin {
 function Invoke-Psql($bin, $cfg, $database, [string[]]$extra) {
     $env:PGPASSWORD = $cfg['POSTGRES_PASSWORD']
     try {
-        & (Join-Path $bin 'psql.exe') -v ON_ERROR_STOP=1 -h localhost -p $cfg['POSTGRES_PORT'] `
-            -U $cfg['POSTGRES_USER'] -d $database @extra
-        if ($LASTEXITCODE -ne 0) { throw "psql failed with exit code $LASTEXITCODE" }
+        Invoke-Native 'psql' {
+            & (Join-Path $bin 'psql.exe') -v ON_ERROR_STOP=1 -h localhost -p $cfg['POSTGRES_PORT'] `
+                -U $cfg['POSTGRES_USER'] -d $database @extra
+        }
     }
     finally { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
 }
 
 function Start-Db($bin, $cfg) {
-    & (Join-Path $bin 'pg_ctl.exe') -D $DataDir -l $LogFile -w `
-        -o "-p $($cfg['POSTGRES_PORT']) -c listen_addresses=localhost" start
-    if ($LASTEXITCODE -ne 0) { throw "pg_ctl start failed; see $LogFile" }
+    # pg_ctl starts the server through a cmd wrapper that inherits pg_ctl's stdout/stderr. If those
+    # are a pipe (CI, `| Select-Object`), the long-lived server keeps the pipe open and the caller
+    # hangs. Point pg_ctl's handles at files instead, and wait for pg_ctl only, not the server.
+    $out = Join-Path $RepoRoot 'data\pg_ctl.out'
+    $err = Join-Path $RepoRoot 'data\pg_ctl.err'
+    $pgArgs = @('-D', "`"$DataDir`"", '-l', "`"$LogFile`"", '-w',
+        '-o', "`"-p $($cfg['POSTGRES_PORT']) -c listen_addresses=localhost`"", 'start')
+    $proc = Start-Process -FilePath (Join-Path $bin 'pg_ctl.exe') -ArgumentList $pgArgs `
+        -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+    $null = $proc.Handle  # cache the handle so ExitCode is available after exit (PS 5.1 quirk)
+    $proc.WaitForExit()
+    Get-Content $out, $err -ErrorAction SilentlyContinue | Write-Host
+    if ($proc.ExitCode -ne 0) { throw "pg_ctl start failed (exit $($proc.ExitCode)); see $LogFile" }
 }
 
 switch ($Command) {
     'install' {
-        & conda create -y -n $EnvName -c conda-forge --override-channels 'postgresql=16' 'pgvector=0.8.6'
-        if ($LASTEXITCODE -ne 0) { throw 'conda create failed' }
+        Invoke-Native 'conda create' {
+            & conda create -y -n $EnvName -c conda-forge --override-channels 'postgresql=16' 'pgvector=0.8.6'
+        }
     }
     'init' {
         $cfg = Read-DotEnv
@@ -81,9 +103,10 @@ switch ($Command) {
         try {
             # ASCII without BOM so initdb reads the password exactly.
             [IO.File]::WriteAllText($pwFile.FullName, $cfg['POSTGRES_PASSWORD'])
-            & (Join-Path $bin 'initdb.exe') -D $DataDir -U $cfg['POSTGRES_USER'] `
-                --pwfile=$($pwFile.FullName) --auth=scram-sha-256 -E UTF8 --locale=C
-            if ($LASTEXITCODE -ne 0) { throw 'initdb failed' }
+            Invoke-Native 'initdb' {
+                & (Join-Path $bin 'initdb.exe') -D $DataDir -U $cfg['POSTGRES_USER'] `
+                    --pwfile=$($pwFile.FullName) --auth=scram-sha-256 -E UTF8 --locale=C
+            }
         }
         finally { Remove-Item $pwFile.FullName -Force }
         Start-Db $bin $cfg
@@ -94,9 +117,9 @@ switch ($Command) {
     }
     'start' { Start-Db (Get-PgBin) (Read-DotEnv) }
     'stop' {
-        & (Join-Path (Get-PgBin) 'pg_ctl.exe') -D $DataDir -m fast stop
-        if ($LASTEXITCODE -ne 0) { throw 'pg_ctl stop failed (is the server running?)' }
+        $bin = Get-PgBin
+        Invoke-Native 'pg_ctl stop (is the server running?)' { & (Join-Path $bin 'pg_ctl.exe') -D $DataDir -m fast stop }
     }
-    'status' { & (Join-Path (Get-PgBin) 'pg_ctl.exe') -D $DataDir status }
+    'status' { $bin = Get-PgBin; Invoke-Native 'pg_ctl status (server not running?)' { & (Join-Path $bin 'pg_ctl.exe') -D $DataDir status } }
     'psql' { $cfg = Read-DotEnv; Invoke-Psql (Get-PgBin) $cfg $cfg['POSTGRES_DB'] @() }
 }
