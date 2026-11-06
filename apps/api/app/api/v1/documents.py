@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, statu
 from app.api.deps import SessionDep, SettingsDep, StorageDep, WorkspaceDep
 from app.core.errors import AppError, ErrorResponse
 from app.modules.documents import repository, service
+from app.modules.documents.status import DocumentStatus
 from app.modules.documents.validation import SUPPORTED_FORMATS
 from app.schemas.common import Page, PageParams, page_params
 from app.schemas.documents import (
@@ -94,9 +95,12 @@ def list_documents(
     session: SessionDep,
     workspace: WorkspaceDep,
     page: Annotated[PageParams, Depends(page_params)],
+    status_filter: Annotated[
+        DocumentStatus | None, Query(alias="status", description="Only documents in this state")
+    ] = None,
 ) -> Page[DocumentOut]:
     rows, total = repository.list_documents(
-        session, workspace.id, limit=page.limit, offset=page.offset
+        session, workspace.id, limit=page.limit, offset=page.offset, status=status_filter
     )
     jobs = repository.latest_jobs(session, [d.id for d in rows])
     return Page(

@@ -20,14 +20,20 @@ def get_document(
 
 
 def list_documents(
-    session: Session, workspace_id: uuid.UUID, *, limit: int, offset: int
+    session: Session,
+    workspace_id: uuid.UUID,
+    *,
+    limit: int,
+    offset: int,
+    status: str | None = None,
 ) -> tuple[Sequence[Document], int]:
-    total = session.scalar(
-        select(func.count()).select_from(Document).where(Document.workspace_id == workspace_id)
-    )
+    conditions = [Document.workspace_id == workspace_id]
+    if status is not None:
+        conditions.append(Document.status == status)
+    total = session.scalar(select(func.count()).select_from(Document).where(*conditions))
     rows = session.scalars(
         select(Document)
-        .where(Document.workspace_id == workspace_id)
+        .where(*conditions)
         .order_by(Document.created_at.desc(), Document.id)
         .limit(limit)
         .offset(offset)

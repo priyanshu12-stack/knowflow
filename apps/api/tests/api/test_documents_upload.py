@@ -189,6 +189,10 @@ def test_list_is_paginated_newest_first(db_client: TestClient) -> None:
     rest = db_client.get("/api/v1/documents", params={"limit": 2, "offset": 2}).json()
     assert [d["original_name"] for d in rest["items"]] == ["n0.txt"]
     assert db_client.get("/api/v1/documents", params={"limit": 0}).status_code == 422
+    queued = db_client.get("/api/v1/documents", params={"status": "queued"}).json()
+    assert queued["total"] == 3
+    assert db_client.get("/api/v1/documents", params={"status": "ready"}).json()["total"] == 0
+    assert db_client.get("/api/v1/documents", params={"status": "done"}).status_code == 422
     assert db_client.get("/api/v1/documents", params={"limit": 101}).status_code == 422
 
 
