@@ -66,10 +66,12 @@ export const CHECK_LABELS: Record<string, string> = {
   ollama: "Ollama runtime",
   generation_model: "Generation model",
   embedding_model: "Embedding model",
+  ingestion_worker: "Ingestion worker",
 };
 
 /** What each optional model unlocks, shown under its label. */
 export const CHECK_HINTS: Record<string, string> = {
   generation_model: "Needed to generate answers",
   embedding_model: "Needed to index and search documents",
+  ingestion_worker: "Processes uploaded documents in the background",
 };

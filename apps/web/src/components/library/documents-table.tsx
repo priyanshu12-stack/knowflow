@@ -1,12 +1,22 @@
 "use client";
 
-import { EllipsisVertical, File, FileCode, FileText, FileType, Trash2 } from "lucide-react";
+import {
+  EllipsisVertical,
+  File,
+  FileCode,
+  FileText,
+  FileType,
+  PanelRight,
+  RotateCw,
+  Trash2,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -51,9 +61,13 @@ function NotYet({ reason }: { reason: string }) {
 export function DocumentsTable({
   documents,
   onDelete,
+  onOpen,
+  onRetry,
 }: {
   documents: LibraryDocument[];
   onDelete: (doc: LibraryDocument) => void;
+  onOpen: (doc: LibraryDocument) => void;
+  onRetry: (doc: LibraryDocument) => void;
 }) {
   return (
     <Table className="min-w-[720px] text-[14px]">
@@ -82,17 +96,38 @@ export function DocumentsTable({
                     strokeWidth={1.75}
                   />
                   <div className="min-w-0">
-                    <p className="truncate font-medium" title={doc.name}>
+                    <button
+                      type="button"
+                      className="max-w-full truncate rounded-sm text-left font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      title={doc.name}
+                      onClick={() => onOpen(doc)}
+                    >
                       {doc.name}
-                    </p>
+                    </button>
                     <p className="text-[12px] text-muted-foreground tabular-nums">
                       {TYPE_LABEL[doc.fileType]} · {formatBytes(doc.sizeBytes)}
                       {doc.version > 1 && ` · version ${doc.version}`}
                     </p>
                     {doc.lastError && (
-                      <p className="mt-1 text-[13px]">
-                        <span className="sr-only">Error: </span>
-                        {doc.lastError.message}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+                        <p>
+                          <span className="sr-only">Error: </span>
+                          {doc.lastError.message}
+                        </p>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() => onRetry(doc)}
+                          aria-label={`Retry processing ${doc.name}`}
+                        >
+                          <RotateCw aria-hidden="true" />
+                          Retry
+                        </Button>
+                      </div>
+                    )}
+                    {!doc.lastError && doc.status === "queued" && doc.latestJob?.errorMessage && (
+                      <p className="mt-1 text-[13px] text-muted-foreground">
+                        Will retry automatically: {doc.latestJob.errorMessage}
                       </p>
                     )}
                   </div>
@@ -118,6 +153,18 @@ export function DocumentsTable({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => onOpen(doc)}>
+                      <PanelRight aria-hidden="true" />
+                      View details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => onRetry(doc)}
+                      disabled={doc.status !== "ready" && doc.status !== "failed"}
+                    >
+                      <RotateCw aria-hidden="true" />
+                      {doc.status === "failed" ? "Retry processing" : "Re-index"}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem variant="destructive" onSelect={() => onDelete(doc)}>
                       <Trash2 aria-hidden="true" />
                       Delete…

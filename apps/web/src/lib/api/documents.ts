@@ -14,6 +14,7 @@ export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 const JOB_STATUSES = ["queued", "running", "succeeded", "failed"] as const;
 const JOB_STAGES = ["extracting", "chunking", "embedding"] as const;
 const FILE_TYPES = ["pdf", "docx", "txt", "md"] as const;
+const GRANULARITIES = ["page", "section", "document"] as const;
 export type FileType = (typeof FILE_TYPES)[number];
 
 export type DuplicateAction = "skip" | "reindex" | "new_version";
@@ -36,8 +37,11 @@ export interface LibraryDocument {
   version: number;
   status: DocumentStatus;
   pageCount: number | null;
-  /** null = not chunked yet (the pipeline arrives in M2), not zero chunks. */
+  /** null = not processed yet, not zero chunks. */
   chunkCount: number | null;
+  extractedCharCount: number | null;
+  /** What a citation can point at: a page, a heading section, or only the whole document. */
+  citationGranularity: "page" | "section" | "document" | null;
   lastError: { code: string; message: string } | null;
   latestJob: IngestionJob | null;
   createdAt: string;
@@ -91,6 +95,11 @@ export function parseDocument(raw: unknown, path = "document"): LibraryDocument 
     status: oneOf(o, "status", DOCUMENT_STATUSES, path),
     pageCount: nullableInt(o, "page_count", path),
     chunkCount: nullableInt(o, "chunk_count", path),
+    extractedCharCount: nullableInt(o, "extracted_char_count", path),
+    citationGranularity:
+      o.citation_granularity === null || o.citation_granularity === undefined
+        ? null
+        : oneOf(o, "citation_granularity", GRANULARITIES, path),
     lastError,
     latestJob: o.latest_job ? parseJob(o.latest_job, `${path}.latest_job`) : null,
     createdAt: str(o, "created_at", path),
@@ -156,6 +165,113 @@ export async function fetchDocuments(
 export async function fetchUploadPolicy(signal?: AbortSignal) {
   return (await requestJson("/api/v1/documents/upload-policy", parseUploadPolicy, { signal })).data;
 }
+
+export async function retryDocument(id: string) {
+  return (
+    await requestJson(`/api/v1/documents/${encodeURIComponent(id)}/retry`, parseDocument, {
+      method: "POST",
+    })
+  ).data;
+}
+
+export async function fetchDocument(id: string, signal?: AbortSignal) {
+  return (
+    await requestJson(`/api/v1/documents/${encodeURIComponent(id)}`, parseDocument, { signal })
+  ).data;
+}
+
+export type ChunkStrategy = "fixed" | "recursive";
+
+export interface DocumentChunk {
+  id: string;
+  index: number;
+  text: string;
+  pageStart: number | null;
+  pageEnd: number | null;
+  sectionPath: string | null;
+  tokenCount: number;
+}
+
+export interface ChunkPage {
+  items: DocumentChunk[];
+  total: number;
+}
+
+export function parseChunkPage(raw: unknown): ChunkPage {
+  const o = obj(raw, "chunks");
+  return {
+    total: int(o, "total", "chunks"),
+    items: arr(o, "items", "chunks", (c, p) => {
+      const co = obj(c, p);
+      return {
+        id: str(co, "id", p),
+        index: int(co, "chunk_index", p),
+        text: str(co, "text", p),
+        pageStart: nullableInt(co, "page_start", p),
+        pageEnd: nullableInt(co, "page_end", p),
+        sectionPath: nullableStr(co, "section_path", p),
+        tokenCount: int(co, "token_count", p),
+      };
+    }),
+  };
+}
+
+export async function fetchChunks(
+  id: string,
+  { strategy, limit, offset }: { strategy: ChunkStrategy; limit: number; offset: number },
+  signal?: AbortSignal,
+) {
+  const qs = new URLSearchParams({ strategy, limit: String(limit), offset: String(offset) });
+  return (
+    await requestJson(`/api/v1/documents/${encodeURIComponent(id)}/chunks?${qs}`, parseChunkPage, {
+      signal,
+    })
+  ).data;
+}
+
+export interface ExtractionPreview {
+  totalSections: number;
+  sections: {
+    ordinal: number;
+    pageNumber: number | null;
+    sectionPath: string | null;
+    text: string;
+  }[];
+}
+
+export function parseExtraction(raw: unknown): ExtractionPreview {
+  const o = obj(raw, "extraction");
+  return {
+    totalSections: int(o, "total_sections", "extraction"),
+    sections: arr(o, "sections", "extraction", (x, p) => {
+      const so = obj(x, p);
+      return {
+        ordinal: int(so, "ordinal", p),
+        pageNumber: nullableInt(so, "page_number", p),
+        sectionPath: nullableStr(so, "section_path", p),
+        text: str(so, "text", p),
+      };
+    }),
+  };
+}
+
+export async function fetchExtraction(id: string, signal?: AbortSignal) {
+  return (
+    await requestJson(
+      `/api/v1/documents/${encodeURIComponent(id)}/extraction?limit=3`,
+      parseExtraction,
+      { signal },
+    )
+  ).data;
+}
+
+/** Statuses where the worker is still expected to change something. */
+export const IN_PROGRESS: readonly DocumentStatus[] = [
+  "queued",
+  "extracting",
+  "chunking",
+  "embedding",
+];
 
 export async function deleteDocument(id: string) {
   await requestJson(`/api/v1/documents/${encodeURIComponent(id)}`, () => undefined, {

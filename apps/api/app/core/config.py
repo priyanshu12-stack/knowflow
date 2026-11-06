@@ -41,6 +41,17 @@ class Settings(BaseSettings):
     storage_root: Path = REPO_ROOT / "data" / "storage"
     upload_max_bytes: int = Field(default=25 * 1024 * 1024, ge=1024, le=200 * 1024 * 1024)
 
+    # Ingestion pipeline (TRD §6.1, §12): every long step is bounded.
+    max_pdf_pages: int = Field(default=500, ge=1, le=5000)
+    max_extracted_chars: int = Field(default=2_000_000, ge=1000, le=20_000_000)
+    extraction_timeout_seconds: float = Field(default=120, gt=0, le=1800)
+    chunk_size_chars: int = Field(default=1200, ge=200, le=8000)
+    chunk_overlap_chars: int = Field(default=200, ge=0, le=2000)
+    job_max_attempts: int = Field(default=3, ge=1, le=10)
+    job_retry_base_seconds: float = Field(default=30, ge=0, le=3600)
+    job_stale_seconds: float = Field(default=300, ge=10, le=86_400)
+    worker_poll_seconds: float = Field(default=2.0, gt=0, le=60)
+
     @property
     def database_url(self) -> URL:
         """SQLAlchemy URL built from parts so the password is never string-formatted into logs."""

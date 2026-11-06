@@ -172,3 +172,37 @@ def check_ollama(settings: Settings, client: httpx.Client | None = None) -> list
             )
         )
     return checks
+
+
+_WORKER_SQL = text(
+    "SELECT pid, EXTRACT(EPOCH FROM (now() - last_seen_at)) FROM worker_heartbeats "
+    "WHERE name = 'ingestion'"
+)
+
+
+def check_worker(engine: Engine, settings: Settings) -> list[DependencyCheck]:
+    """Is an ingestion worker heart-beating? Uploads queue fine without one, but never progress."""
+    max_age = max(15.0, settings.worker_poll_seconds * 5)
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(_WORKER_SQL).one_or_none()
+    except SQLAlchemyError:
+        return []  # database / schema problems are reported by their own checks
+    if row is not None and float(row[1]) <= max_age:
+        return [
+            DependencyCheck(
+                name="ingestion_worker",
+                state="ok",
+                required=False,
+                detail=f"Ingestion worker running (pid {row[0]}).",
+            )
+        ]
+    return [
+        DependencyCheck(
+            name="ingestion_worker",
+            state="missing",
+            required=False,
+            detail="No ingestion worker is running, so uploaded documents stay queued.",
+            remediation="./scripts/dev.ps1 worker",
+        )
+    ]

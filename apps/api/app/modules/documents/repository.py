@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, IngestionJob
+from app.db.models import Chunk, Document, DocumentSection, IngestionJob
 from app.modules.documents.status import ACTIVE_JOB_STATUSES
 
 
@@ -82,3 +82,55 @@ def get_job(session: Session, workspace_id: uuid.UUID, job_id: uuid.UUID) -> Ing
         .join(Document, Document.id == IngestionJob.document_id)
         .where(IngestionJob.id == job_id, Document.workspace_id == workspace_id)
     )
+
+
+# Chunk counts shown in the library use the default retrieval strategy (recursive, ADR-005).
+DEFAULT_STRATEGY = "recursive"
+
+
+def chunk_counts(
+    session: Session, document_ids: Sequence[uuid.UUID], strategy: str = DEFAULT_STRATEGY
+) -> dict[uuid.UUID, int]:
+    if not document_ids:
+        return {}
+    rows = session.execute(
+        select(Chunk.document_id, func.count())
+        .where(Chunk.document_id.in_(document_ids), Chunk.strategy == strategy)
+        .group_by(Chunk.document_id)
+    ).all()
+    return {doc_id: count for doc_id, count in rows}
+
+
+def list_chunks(
+    session: Session,
+    workspace_id: uuid.UUID,
+    document_id: uuid.UUID,
+    *,
+    strategy: str,
+    limit: int,
+    offset: int,
+) -> tuple[Sequence[Chunk], int]:
+    conditions = [
+        Chunk.workspace_id == workspace_id,
+        Chunk.document_id == document_id,
+        Chunk.strategy == strategy,
+    ]
+    total = session.scalar(select(func.count()).select_from(Chunk).where(*conditions))
+    rows = session.scalars(
+        select(Chunk).where(*conditions).order_by(Chunk.chunk_index).limit(limit).offset(offset)
+    ).all()
+    return rows, total or 0
+
+
+def list_sections(
+    session: Session, workspace_id: uuid.UUID, document_id: uuid.UUID, *, limit: int
+) -> tuple[Sequence[DocumentSection], int]:
+    conditions = [
+        DocumentSection.workspace_id == workspace_id,
+        DocumentSection.document_id == document_id,
+    ]
+    total = session.scalar(select(func.count()).select_from(DocumentSection).where(*conditions))
+    rows = session.scalars(
+        select(DocumentSection).where(*conditions).order_by(DocumentSection.ordinal).limit(limit)
+    ).all()
+    return rows, total or 0

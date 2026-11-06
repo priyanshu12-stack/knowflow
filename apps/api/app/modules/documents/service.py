@@ -38,7 +38,9 @@ class UploadOutput:
     job: IngestionJob | None
 
 
-def to_document_out(document: Document, latest_job: IngestionJob | None) -> DocumentOut:
+def to_document_out(
+    document: Document, latest_job: IngestionJob | None, chunk_count: int | None = None
+) -> DocumentOut:
     last_error = None
     if latest_job is not None and latest_job.status == "failed":
         last_error = SafeError(
@@ -48,7 +50,8 @@ def to_document_out(document: Document, latest_job: IngestionJob | None) -> Docu
     return DocumentOut.model_validate(
         {
             **{c: getattr(document, c) for c in DocumentOut.model_fields if hasattr(document, c)},
-            "chunk_count": None,
+            # null until the document has been chunked at least once
+            "chunk_count": chunk_count if document.status == "ready" else None,
             "last_error": last_error,
             "latest_job": JobOut.model_validate(latest_job) if latest_job else None,
         }
@@ -81,6 +84,11 @@ def _reindex(session: Session, document: Document) -> IngestionJob:
         job = _queue_job(session, document)
         session.commit()
     return job
+
+
+def retry_document(session: Session, document: Document) -> IngestionJob:
+    """Queue a failed (or ready) document again. Reuses an active job, so it is idempotent."""
+    return _reindex(session, document)
 
 
 def upload_document(
