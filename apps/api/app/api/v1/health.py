@@ -16,6 +16,22 @@ from app.core.readiness import (
 )
 from app.db.session import get_engine
 
+
+def _effective(settings: Settings) -> tuple[str, str] | None:
+    """Saved model selection, if the database is reachable; else the .env defaults."""
+    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.orm import Session
+
+    from app.modules.models.registry import effective_models
+
+    try:
+        with Session(get_engine()) as session:
+            m = effective_models(session, settings)
+    except SQLAlchemyError:
+        return None
+    return m.generation_model, m.embedding_model
+
+
 router = APIRouter(prefix="/health", tags=["health"])
 
 
@@ -35,7 +51,7 @@ def get_readiness_probes(
     return [
         lambda: check_postgres(get_engine()),
         lambda: check_schema(get_engine()),
-        lambda: check_ollama(settings),
+        lambda: check_ollama(settings, models=_effective(settings)),
         lambda: check_worker(get_engine(), settings),
     ]
 

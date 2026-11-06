@@ -126,7 +126,11 @@ def _ollama_probe_client(base_url: str, timeout: float) -> httpx.Client:
     return httpx.Client(base_url=base_url, timeout=timeout)
 
 
-def check_ollama(settings: Settings, client: httpx.Client | None = None) -> list[DependencyCheck]:
+def check_ollama(
+    settings: Settings,
+    client: httpx.Client | None = None,
+    models: tuple[str, str] | None = None,
+) -> list[DependencyCheck]:
     started = time.perf_counter()
     client = client or _ollama_probe_client(
         settings.ollama_base_url, settings.health_check_timeout_seconds
@@ -156,10 +160,11 @@ def check_ollama(settings: Settings, client: httpx.Client | None = None) -> list
             latency_ms=_elapsed_ms(started),
         )
     ]
-    for role, model in (
-        ("generation_model", settings.ollama_generation_model),
-        ("embedding_model", settings.ollama_embedding_model),
-    ):
+    generation, embedding = models or (
+        settings.ollama_generation_model,
+        settings.ollama_embedding_model,
+    )
+    for role, model in (("generation_model", generation), ("embedding_model", embedding)):
         present = model in installed
         checks.append(
             DependencyCheck(
