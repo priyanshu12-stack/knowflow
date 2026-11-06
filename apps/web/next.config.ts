@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   poweredByHeader: false,
+  experimental: {
+    // The rewrite proxy defaults to a 30 s timeout. Local CPU generation can take minutes, so a
+    // shorter limit drops answers that the API has already produced and saved.
+    proxyTimeout: 600_000,
+  },
   turbopack: {
     rules: {
       "*.css": {

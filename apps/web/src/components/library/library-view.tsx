@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { useSystemStatus } from "@/components/system-status/system-status-provider";
 import { ApiError } from "@/lib/api/client";
 import {
+  fetchDocument,
   fetchDocuments,
   fetchUploadPolicy,
   IN_PROGRESS,
@@ -71,6 +72,23 @@ export function LibraryView() {
   const [reloadKey, setReloadKey] = useState(0);
   const [toDelete, setToDelete] = useState<LibraryDocument | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  // A document opened by link (/library?document=<id>, e.g. from a citation) that may not be on
+  // the current page of the table.
+  const [linked, setLinked] = useState<LibraryDocument | null>(null);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("document");
+    if (!id) return;
+    const ctrl = new AbortController();
+    fetchDocument(id, ctrl.signal).then(
+      (doc) => {
+        setLinked(doc);
+        setOpenId(doc.id);
+      },
+      () => !ctrl.signal.aborted && toast.error("That document no longer exists."),
+    );
+    return () => ctrl.abort();
+  }, []);
   const { status: system } = useSystemStatus();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -139,7 +157,8 @@ export function LibraryView() {
       : undefined;
   const workerDown = processing && workerCheck !== undefined && workerCheck.state !== "ok";
   const openDoc =
-    state.kind === "loaded" ? (state.page.items.find((d) => d.id === openId) ?? null) : null;
+    (state.kind === "loaded" ? state.page.items.find((d) => d.id === openId) : undefined) ??
+    (linked?.id === openId ? linked : null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -271,7 +290,10 @@ export function LibraryView() {
 
       <DocumentDrawer
         document={openDoc}
-        onClose={() => setOpenId(null)}
+        onClose={() => {
+          setOpenId(null);
+          setLinked(null);
+        }}
         onRetry={(d) => void onRetry(d)}
       />
 
