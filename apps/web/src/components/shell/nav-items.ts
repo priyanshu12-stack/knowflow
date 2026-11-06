@@ -25,7 +25,7 @@ export interface NavItem {
 export const PRIMARY_NAV: NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "Knowledge Library", href: "/library", icon: Files },
-  { label: "Ask KnowFlow", href: "/ask", icon: MessagesSquare, availableIn: "M4" },
+  { label: "Ask KnowFlow", href: "/ask", icon: MessagesSquare },
   { label: "SQL Analyst", href: "/sql", icon: Database, availableIn: "M6" },
   { label: "Evaluation Lab", href: "/evaluation", icon: FlaskConical, availableIn: "M5" },
 ];

@@ -294,3 +294,73 @@ class ModelSettings(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class Conversation(TimestampMixin, Base):
+    __tablename__ = "conversations"
+    __table_args__ = (
+        CheckConstraint("char_length(btrim(title)) BETWEEN 1 AND 120", name="title_length"),
+        Index("ix_conversations_workspace_updated", "workspace_id", "updated_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="RESTRICT"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="Message.created_at",
+    )
+
+
+class Message(Base):
+    """One chat turn. Assistant messages carry citations and the retrieval trace (TRD §7)."""
+
+    __tablename__ = "messages"
+    __table_args__ = (
+        CheckConstraint("role IN ('user', 'assistant')", name="role_valid"),
+        CheckConstraint("char_length(content) BETWEEN 1 AND 20000", name="content_size"),
+        Index("ix_messages_conversation_created", "conversation_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(10), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    citations: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    # abstained, retrieval trace, model, prompt_version, latency: no secrets, no prompt text.
+    metadata_: Mapped[dict[str, object]] = mapped_column(
+        "metadata", JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+
+class MessageFeedback(Base):
+    """Helpful / not helpful on an answer, kept for error analysis (PRD §5.3)."""
+
+    __tablename__ = "message_feedback"
+    __table_args__ = (
+        CheckConstraint("rating IN ('helpful', 'not_helpful')", name="rating_valid"),
+        CheckConstraint("reason IS NULL OR char_length(reason) <= 1000", name="reason_size"),
+    )
+
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), primary_key=True
+    )
+    rating: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

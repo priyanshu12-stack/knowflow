@@ -90,7 +90,7 @@ def _reset(engine: Engine) -> None:
         conn.execute(
             text(
                 "TRUNCATE ingestion_jobs, documents, worker_heartbeats, embedding_versions, "
-                "model_settings CASCADE"
+                "model_settings, conversations CASCADE"
             )
         )
         conn.execute(text("DELETE FROM workspaces WHERE NOT is_default"))

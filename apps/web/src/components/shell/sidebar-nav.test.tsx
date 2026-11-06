@@ -24,10 +24,11 @@ describe("SidebarNav", () => {
     expect(library).not.toHaveAttribute("aria-current");
 
     // Unbuilt pages are disabled with an explanation, never a dead link (DRD §13, §15).
-    const ask = screen.getByRole("link", { name: /Ask KnowFlow/ });
-    expect(ask).toHaveAttribute("aria-disabled", "true");
-    expect(ask).not.toHaveAttribute("href");
-    expect(ask).toHaveTextContent("ships in milestone M4");
+    expect(screen.getByRole("link", { name: "Ask KnowFlow" })).toHaveAttribute("href", "/ask");
+    const sql = screen.getByRole("link", { name: /SQL Analyst/ });
+    expect(sql).toHaveAttribute("aria-disabled", "true");
+    expect(sql).not.toHaveAttribute("href");
+    expect(sql).toHaveTextContent("ships in milestone M6");
   });
 });
 
