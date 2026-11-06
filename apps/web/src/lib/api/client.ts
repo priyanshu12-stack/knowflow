@@ -72,7 +72,7 @@ export interface ApiResponse<T> {
 }
 
 export interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** Serialized as a JSON request body. */
   json?: unknown;
   timeoutMs?: number;
