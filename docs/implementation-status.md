@@ -10,7 +10,7 @@ _Last updated: 2026-11-07_
 
 | Item | Value |
 |---|---|
-| Active milestone | **M3 – Local model integration: complete**. Next: M4 – Basic RAG |
+| Active milestone | **M4 – Basic RAG: complete**. Next: M5 – Retrieval experiments |
 | Branch | `main` (M0 merged from `feat/m0-foundation`) |
 | Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
@@ -122,9 +122,21 @@ _Last updated: 2026-11-07_
 | Live dense search on paraphrases ("accommodation per night") | Finds travel-policy.pdf p.2 (cosine 0.745); lexical finds nothing. Not a quality claim; M5 measures it |
 
 ### M4 – Basic RAG
-- [ ] Dense retrieval, context packing, versioned prompts, Qwen generation, Pydantic response
-- [ ] Citations + source drawer + abstention; conversations; feedback
-- [ ] **Exit:** user asks question and receives grounded answer with clickable source citation
+- [x] Dense retrieval, context packing (dedupe + char budget), versioned prompts (`rag-answer-v2`), Qwen generation with JSON Schema, Pydantic validation
+- [x] Citation verification (invalid markers dropped, renumbered; uncited answers become abstentions), source drawer, abstention (no sources / weak evidence / model / unsupported); conversations (rename/delete); feedback with reason
+- [x] Generation concurrency cap (429 `generation_busy`); Next proxy timeout raised to 600 s (the 30 s default dropped CPU-generated answers)
+- [x] **Exit:** user asks question and receives grounded answer with clickable source citation
+
+#### M4 verification record (2026-11-07)
+
+| Check | Result |
+|---|---|
+| `dev.ps1 check` | Pass. pytest 202 passed + 2 opt-in skipped, vitest 66/66, build OK |
+| Live API, qwen3:4b on CPU | "hotel per night": 150 EUR [1], page 2 (88 s incl. model load); "approve 3000 EUR trip": director [1], page 3 (56 s); "parental leave": abstained (30 s) |
+| Live UI via Playwright (Edge), prompt v2 | Answer with citation chip, source drawer with exact excerpt, retrieval details, 29 s; no console errors; no horizontal overflow at 390 px |
+| Bug found and fixed | Next's rewrite proxy cut long requests at 30 s ("socket hang up"), so the UI showed an error although the API saved the answer. `experimental.proxyTimeout` is now 600 s |
+
+Not done (recorded in ADR-000 G-8): RAG `/chat/clarify` is not exposed. Conversation history is shown but not sent to retrieval (each question is retrieved independently).
 
 ### M5 – Retrieval experiments
 - [ ] Postgres FTS, RRF, top-k controls, reranker adapter/toggle
