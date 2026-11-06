@@ -130,6 +130,7 @@ def check_ollama(
     settings: Settings,
     client: httpx.Client | None = None,
     models: tuple[str, str] | None = None,
+    busy: bool = False,
 ) -> list[DependencyCheck]:
     started = time.perf_counter()
     client = client or _ollama_probe_client(
@@ -139,6 +140,17 @@ def check_ollama(
         version = client.get("/api/version").raise_for_status().json().get("version")
         tags = client.get("/api/tags").raise_for_status().json().get("models", [])
     except (httpx.HTTPError, ValueError) as exc:
+        if busy and isinstance(exc, httpx.TimeoutException):
+            # A local generation is saturating the CPU; the runtime is working, not down.
+            return [
+                DependencyCheck(
+                    name="ollama",
+                    state="ok",
+                    required=True,
+                    detail="Ollama is busy generating an answer.",
+                    latency_ms=_elapsed_ms(started),
+                )
+            ]
         logger.warning("ollama_unavailable", extra={"error_type": type(exc).__name__})
         return [
             DependencyCheck(

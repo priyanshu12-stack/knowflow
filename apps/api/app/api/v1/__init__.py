@@ -8,6 +8,7 @@ from app.api.v1 import (
     jobs,
     search,
     settings,
+    sql,
     workspaces,
 )
 
@@ -20,3 +21,4 @@ router.include_router(search.router)
 router.include_router(settings.router)
 router.include_router(chat.router)
 router.include_router(evaluations.router)
+router.include_router(sql.router)

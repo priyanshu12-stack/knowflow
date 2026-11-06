@@ -10,7 +10,7 @@ _Last updated: 2026-11-07_
 
 | Item | Value |
 |---|---|
-| Active milestone | **M5 – Retrieval experiments: complete except S4** (reranker not installed). Next: M6 – Text-to-SQL |
+| Active milestone | **M6 – Text-to-SQL: complete**. Next: M7 – Product polish and safety |
 | Branch | `main` (M0 merged from `feat/m0-foundation`) |
 | Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
@@ -152,10 +152,21 @@ Not done (recorded in ADR-000 G-8): RAG `/chat/clarify` is not exposed. Conversa
 | Not done | S4 (reranker not installed). Gold labels not yet human-reviewed |
 
 ### M6 – Text-to-SQL
-- [ ] Demo schema + synthetic seed, read-only role, introspection, glossary
-- [ ] Ambiguity detection + clarification, SQL generation, SQLGlot validation, read-only execution
-- [ ] SQL Analyst UI
-- [ ] **Exit:** ambiguous question asks clarification; unsafe SQL rejected; safe SELECT returns table
+- [x] Demo database `knowflow_demo` (synthetic: 120 customers, 16 products, 900 orders, 2,168 items, 864 payments incl. refunds, duplicate names, NULLs), `dev.ps1 seed-demo`; SELECT-only role verified by attack attempts (ADR-006)
+- [x] Introspection with comments + FK join hints; editable glossary (ambiguous terms with 2-4 options, definitions)
+- [x] Deterministic glossary clarification (no model call) + model clarification; SQL prompt `sql-v3`; SQLGlot AST validation; read-only execution with timeouts and row cap; one user-triggered repair turn
+- [x] Write-only encrypted connection secrets; read-only check refuses superusers / writable roles; history with redacted literals
+- [x] SQL Analyst UI: schema browser + glossary, clarification panel, highlighted read-only SQL with copy, model interpretation labelled, sortable results with sticky header
+- [x] **Exit:** ambiguous question asks clarification; unsafe SQL rejected; safe SELECT returns table
+
+#### M6 verification record (2026-11-07)
+
+| Check | Result |
+|---|---|
+| Tests | pytest 275 passed + 2 opt-in skipped; vitest 76/76. Includes 45 validator unit tests (35 unsafe statements rejected) and 9 SQL integration tests on a throwaway seeded database (Journey C, rejections never execute, timeout, row cap, model clarification, unsupported, repair, connection refusal, redaction, glossary) |
+| Live, qwen3:4b | "Show me our best customers last month." returns the glossary clarification instantly; after "Highest paid revenue" the SQL runs read-only (69 s generation, 41 ms execution) and its top 5 match a hand-written query exactly. "Orders per status": correct in 19 s |
+| Live model weaknesses (recorded, ADR-006) | With prompt v1/v2 the model misspelled identifiers; one repair output came back truncated. All failed safely. v3 fixed the Journey C query |
+| Not measured | SQL accuracy benchmark (no SQL gold set yet) |
 
 ### M7 – Product polish and safety
 - [ ] Prompt-injection tests, workspace filters, file limits, secret redaction, audit events

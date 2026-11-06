@@ -15,6 +15,7 @@ from app.core.readiness import (
     check_worker,
 )
 from app.db.session import get_engine
+from app.modules.models import gate
 
 
 def _effective(settings: Settings) -> tuple[str, str] | None:
@@ -51,7 +52,7 @@ def get_readiness_probes(
     return [
         lambda: check_postgres(get_engine()),
         lambda: check_schema(get_engine()),
-        lambda: check_ollama(settings, models=_effective(settings)),
+        lambda: check_ollama(settings, models=_effective(settings), busy=gate.busy()),
         lambda: check_worker(get_engine(), settings),
     ]
 

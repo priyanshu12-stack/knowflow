@@ -54,6 +54,18 @@ class Settings(BaseSettings):
     max_concurrent_generations: int = Field(default=1, ge=1, le=8)
     generation_queue_wait_seconds: float = Field(default=10, ge=0, le=600)
 
+    # SQL Analyst (TRD §10). The demo database is separate from the application database and
+    # is queried only through a SELECT-only login role.
+    demo_db_name: str = "knowflow_demo"
+    demo_reader_user: str = "knowflow_reader"
+    demo_db_reader_password: SecretStr = SecretStr("")
+    sql_statement_timeout_ms: int = Field(default=5000, ge=100, le=60_000)
+    sql_lock_timeout_ms: int = Field(default=1000, ge=100, le=10_000)
+    sql_max_rows: int = Field(default=500, ge=1, le=10_000)
+    # Key for encrypting stored connection secrets. If unset, one is generated into data/.
+    secret_key: SecretStr = SecretStr("")
+    secret_key_file: Path = REPO_ROOT / "data" / "secret.key"
+
     # Optional CPU-heavy second stage (TRD §4.2); off unless measured to help.
     enable_reranker: bool = False
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
