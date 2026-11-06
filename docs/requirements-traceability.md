@@ -13,9 +13,9 @@ milestone → implementation module → test → status.
 
 | ID | Requirement | Source | MS | Implementation module | Test case | Status |
 |---|---|---|---|---|---|---|
-| CON-01 | Zero paid inference APIs; LLM, embedding, reranking run locally by default | TRD §1, §4; PRD §2.1 | M3 | `apps/api/app/modules/models/` (Ollama adapters only) | dependency audit in CI (`scripts/check_no_paid_apis.py`) | Not started |
-| CON-02 | No API key / credit card / hosted endpoint required for core functionality | TRD §1; PRD §9 Privacy | M0–M8 | `.env.example` contains no provider keys | `scripts/check_no_paid_apis.py` | Not started |
-| CON-03 | Do not claim free weights = zero compute cost; document real resource cost | TRD §1, §13 | M0 | `docs/decisions/ADR-007-local-only-cost-boundary.md` | doc review | In progress |
+| CON-01 | Zero paid inference APIs; LLM, embedding, reranking run locally by default | TRD §1, §4; PRD §2.1 | M3 | `scripts/check_no_paid_apis.py` (manifests + source); models module lands M3 | `check_no_paid_apis.py` negative test run manually; CI `policy` job | Partial |
+| CON-02 | No API key / credit card / hosted endpoint required for core functionality | TRD §1; PRD §9 Privacy | M0–M8 | `.env.example` contains no provider keys | `scripts/check_no_paid_apis.py`; `.env.example` has no key variables | Done |
+| CON-03 | Do not claim free weights = zero compute cost; document real resource cost | TRD §1, §13 | M0 | `docs/decisions/ADR-007-local-only-cost-boundary.md` | doc review | Done |
 | CON-04 | No invented quality claims or benchmark numbers; unmeasured = NOT MEASURED | TRD §1, §9; PRD §2.2 | M5 | `docs/evaluation/` | doc review | In progress |
 | CON-05 | Build in vertical slices; no empty placeholder modules | TRD §1; PRD §7 | all | repo-wide | code review | In progress |
 | CON-06 | Provider-agnostic interfaces `ChatModel`, `EmbeddingModel`, `Reranker`; ship Ollama adapters only | TRD §4 | M3 | `apps/api/app/modules/models/base.py` | `tests/unit/models/test_interfaces.py` | Not started |
@@ -28,11 +28,11 @@ milestone → implementation module → test → status.
 
 | ID | Requirement | Source | MS | Implementation module | Test case | Status |
 |---|---|---|---|---|---|---|
-| STK-01 | Next.js App Router + TypeScript (strict) | TRD §3, §15 | M0 | `apps/web/` | `npm run typecheck` | Not started |
-| STK-02 | Tailwind CSS + customised shadcn/ui + lucide-react; no second UI library | TRD §3; DRD §12 | M0 | `apps/web/src/components/ui/` | code review | Not started |
-| STK-03 | Python 3.12+ FastAPI backend | TRD §3 | M0 | `apps/api/app/main.py` | `tests/api/test_health.py` | Not started |
-| STK-04 | Pydantic v2 at all boundaries (API, model output, config) | TRD §3, §15 | M0+ | `apps/api/app/schemas/`, `core/config.py` | contract tests | Not started |
-| STK-05 | PostgreSQL 16+ as system of record | TRD §3, §5 | M0 | `infra/`, `scripts/db.ps1` | `/health/ready` integration test | Not started |
+| STK-01 | Next.js App Router + TypeScript (strict) | TRD §3, §15 | M0 | `apps/web/` (Next.js 16.4.5, `strict: true`) | `npm run typecheck` | Done |
+| STK-02 | Tailwind CSS + customised shadcn/ui + lucide-react; no second UI library | TRD §3; DRD §12 | M0 | `apps/web/src/components/ui/` (shadcn radix-nova, customised tokens) | code review | Done |
+| STK-03 | Python 3.12+ FastAPI backend | TRD §3 | M0 | `apps/api/app/main.py` | `tests/api/test_health.py` | Done |
+| STK-04 | Pydantic v2 at all boundaries (API, model output, config) | TRD §3, §15 | M0+ | `core/config.py` (pydantic-settings), response models in `api/v1/health.py` | contract tests | Partial |
+| STK-05 | PostgreSQL 16+ as system of record | TRD §3, §5 | M0 | native: `scripts/db.ps1` (PG 16.15); Docker/CI: `pgvector/pgvector:pg16` | `tests/integration/test_postgres_ready.py` | Done |
 | STK-06 | pgvector extension; exact search baseline, HNSW only after measurement | TRD §3, §12 | M3 | Alembic migration | `tests/integration/test_vector_search.py` | Not started |
 | STK-07 | Postgres FTS (`tsvector`, `ts_rank_cd`) lexical retrieval | TRD §3 | M5 | `modules/retrieval/lexical.py` | `tests/integration/test_lexical.py` | Not started |
 | STK-08 | Ollama local runtime | TRD §3 | M3 | `modules/models/ollama.py` | `tests/unit/models/test_ollama_adapter.py` | Not started |
@@ -42,19 +42,19 @@ milestone → implementation module → test → status.
 | STK-12 | Custom chunking strategies (fixed, recursive, semantic experiment) | TRD §3 | M2 | `modules/documents/chunking/` | `tests/unit/chunking/` | Not started |
 | STK-13 | SQLGlot AST validation + dedicated read-only Postgres role | TRD §3, §10 | M6 | `modules/sql_assistant/validate.py` | `tests/unit/sql/test_validator.py` | Not started |
 | STK-14 | Postgres-backed job table + one worker process (no Redis/Celery) | TRD §3 | M2 | `apps/api/app/workers/` | `tests/integration/test_worker.py` | Not started |
-| STK-15 | Pytest + HTTPX; Vitest; Playwright | TRD §3 | M0/M7 | `apps/api/tests/`, `apps/web/src/**/*.test.ts`, `apps/web/e2e/` | CI | Not started |
+| STK-15 | Pytest + HTTPX; Vitest; Playwright | TRD §3 | M0/M7 | pytest + Vitest in place; Playwright at M7 | CI | Partial |
 | STK-16 | Custom gold-set evaluator; Ragas optional and supplementary only | TRD §3 | M5 | `modules/evaluation/` | `tests/unit/eval/test_metrics.py` | Not started |
-| STK-17 | Structured JSON logs + request_id + local metrics table; no external telemetry | TRD §3 | M0 | `apps/api/app/core/logging.py`, middleware | `tests/unit/test_request_id.py` | Not started |
-| STK-18 | Docker Compose for Postgres; native + Docker Ollama options documented | TRD §3, §13 | M0 | `infra/docker-compose.yml`, README | CI service container | Not started |
-| STK-19 | GitHub Actions: lint, typecheck, tests, migration check, build; never download LLMs | TRD §3, §9 | M0 | `.github/workflows/ci.yml` | CI run | Not started |
+| STK-17 | Structured JSON logs + request_id + local metrics table; no external telemetry | TRD §3 | M0 | `core/logging.py`, `core/middleware.py`; metrics table at M4 | `tests/unit/test_logging.py`, `tests/api/test_request_id.py` | Partial |
+| STK-18 | Docker Compose for Postgres; native + Docker Ollama options documented | TRD §3, §13 | M0 | `infra/docker-compose.yml` (validated in CI, not run locally — ADR-008) | CI `compose` job | Partial |
+| STK-19 | GitHub Actions: lint, typecheck, tests, migration check, build; never download LLMs | TRD §3, §9 | M0 | `.github/workflows/ci.yml` written; **not yet run** (no GitHub remote) | CI | Partial |
 | STK-20 | SQLAlchemy 2.x + Alembic; never `create_all` at startup | TRD §15 | M1 | `apps/api/app/db/`, `apps/api/alembic/` | `tests/integration/test_migrations.py` | Not started |
-| STK-21 | ruff + mypy (Python); ESLint + TS strict (web) | TRD §15 | M0 | `pyproject.toml`, `eslint.config.mjs` | CI | Not started |
+| STK-21 | ruff + mypy (Python); ESLint + TS strict (web) | TRD §15 | M0 | `pyproject.toml`, `eslint.config.mjs` | `ruff`, `mypy --strict`, `eslint`, `tsc` | Done |
 
 ## 3. Model runtime contract (TRD §4.3)
 
 | ID | Requirement | Source | MS | Implementation module | Test case | Status |
 |---|---|---|---|---|---|---|
-| MOD-01 | Startup health-check of Ollama and required models | TRD §4.3 | M0/M3 | `core/health.py`, `modules/models/health.py` | `tests/api/test_health.py` | Not started |
+| MOD-01 | Startup health-check of Ollama and required models | TRD §4.3 | M0/M3 | `core/readiness.py` (runtime + model presence); adapters at M3 | `tests/unit/test_readiness.py` | Partial |
 | MOD-02 | Bounded timeouts, concurrency limits, cancellation for model calls | TRD §4.3, §12 | M3 | `modules/models/ollama.py` | `tests/unit/models/test_timeouts.py` | Not started |
 | MOD-03 | Temperature 0–0.2 for extraction/SQL; moderate only for prose | TRD §4.3 | M4/M6 | prompt configs | unit test on request payload | Not started |
 | MOD-04 | Structured output: Ollama JSON schema + independent Pydantic validation; invalid = recoverable error | TRD §4.3, §11 | M4 | `modules/models/structured.py` | `tests/unit/models/test_structured_output.py` | Not started |
@@ -167,21 +167,21 @@ milestone → implementation module → test → status.
 
 | ID | Requirement | Source | MS | Implementation module | Test case | Status |
 |---|---|---|---|---|---|---|
-| WSP-01 | First-launch setup checklist: DB connected, Ollama reachable, generation model, embedding model | PRD §5.1, Journey A | M0/M3 | Overview readiness panel | Vitest | Not started |
+| WSP-01 | First-launch setup checklist: DB connected, Ollama reachable, generation model, embedding model | PRD §5.1, Journey A | M0/M3 | `components/system-status/readiness-panel.tsx` | `readiness-panel.test.tsx` | Done |
 | WSP-02 | Default local workspace auto-created; rename; no forced registration | PRD §5.1 | M1 | migration seed + `PATCH /workspaces/{id}` | API test | Not started |
 | WSP-03 | Guided, clearly labelled sample dataset (public-domain/synthetic); sources tracked in `docs/demo-data-sources.md` | PRD §5.1, §10 | M5/M8 | `data-seed/`, docs | — | Not started |
 | WSP-04 | Never imply optional reranker is required | PRD §5.1 | M3 | UI copy | content review | Not started |
-| WSP-05 | Overview: readiness row, real metrics only, recent activity, working quick actions | PRD §4; DRD §7.1 | M0→M5 | `apps/web/src/app/(app)/page.tsx` | Vitest + Playwright | Not started |
+| WSP-05 | Overview: readiness row, real metrics only, recent activity, working quick actions | PRD §4; DRD §7.1 | M0→M5 | `apps/web/src/app/page.tsx` (readiness only; metrics/activity/actions arrive with M1+) | Vitest + Playwright | Partial |
 | WSP-06 | Activity/Logs: ingestion jobs, failures, request ids, safe logs, latency | PRD §4 | M7 | Activity page + `audit_events` | Playwright | Not started |
 
 ## 10. API contract (TRD §8)
 
 | ID | Requirement | Source | MS | Implementation module | Test case | Status |
 |---|---|---|---|---|---|---|
-| API-01 | All endpoints under `/api/v1` | TRD §8 | M0 | `apps/api/app/api/v1/` | `tests/api/` | Not started |
-| API-02 | Stable error codes + human detail + request_id; never stack traces | TRD §8, §11; DRD §11 | M0 | `core/errors.py` | `tests/api/test_errors.py` | Not started |
-| API-03 | `GET /health/live` → 200 `{status:'ok'}` | TRD §8 | M0 | `api/v1/health.py` | `tests/api/test_health.py` | Not started |
-| API-04 | `GET /health/ready` → 200/503 with separate DB & Ollama status, no secrets | TRD §8, §12 | M0 | `api/v1/health.py` | `tests/api/test_health.py` | Not started |
+| API-01 | All endpoints under `/api/v1` | TRD §8 | M0 | `apps/api/app/api/v1/__init__.py` | `tests/api/` | Done |
+| API-02 | Stable error codes + human detail + request_id; never stack traces | TRD §8, §11; DRD §11 | M0 | `core/errors.py` | `tests/api/test_errors.py` | Done |
+| API-03 | `GET /health/live` → 200 `{status:'ok'}` | TRD §8 | M0 | `api/v1/health.py` | `tests/api/test_health.py` | Done |
+| API-04 | `GET /health/ready` → 200/503 with separate DB & Ollama status, no secrets | TRD §8, §12 | M0 | `api/v1/health.py`, `core/readiness.py` | `tests/api/test_health.py` | Done |
 | API-05 | Paginated list endpoints (documents, conversations) | TRD §8 | M1/M4 | `schemas/common.py` | API tests | Not started |
 
 ## 11. Security & privacy (TRD §11)
@@ -191,11 +191,11 @@ milestone → implementation module → test → status.
 | SEC-01 | Malicious upload controls (allowlist, signature, size/page limits, parser timeouts, no static serving) | TRD §11 | M1/M2/M7 | documents module | `tests/security/test_uploads.py` | Not started |
 | SEC-02 | Prompt-injection: evidence delimited, policy to ignore document instructions, adversarial corpus tests | TRD §11; PRD §10 | M4/M7 | RAG prompts | `tests/security/test_prompt_injection.py` + eval cases | Not started |
 | SEC-03 | Workspace filter on every document/chunk/conversation/eval query + authorization tests | TRD §11 | M1→M7 | repositories | `tests/integration/test_workspace_isolation.py` | Not started |
-| SEC-04 | Secrets via env, `.env` ignored, `.env.example` placeholders, never logged, redacted | TRD §11, §15 | M0 | `.gitignore`, `core/logging.py` redaction | `tests/unit/test_redaction.py` | Not started |
+| SEC-04 | Secrets via env, `.env` ignored, `.env.example` placeholders, never logged, redacted | TRD §11, §15 | M0 | `.gitignore`, `.env.example`, `core/logging.py` redaction, CI `policy` job | `tests/unit/test_logging.py` | Done |
 | SEC-05 | No direct execution of model output; bounded retries | TRD §11 | M4/M6 | structured output module | unit test | Not started |
 | SEC-06 | Path traversal protection | TRD §11 | M1 | storage service | `tests/unit/documents/test_storage.py` | Not started |
 | SEC-07 | DoS: upload limits, rate/concurrency limits, timeouts, bounded context/top-k | TRD §11, §12 | M1→M7 | config + middleware | unit tests | Not started |
-| SEC-08 | Log IDs and metrics, not document text or credentials; configurable retention | TRD §11 | M0/M7 | logging | unit test | Not started |
+| SEC-08 | Log IDs and metrics, not document text or credentials; configurable retention | TRD §11 | M0/M7 | `core/logging.py` (IDs/metrics only, redaction); retention at M7 | unit test | Partial |
 | SEC-09 | SQL result cells treated as data, never as instructions | TRD §11 | M6 | summarize prompt | unit test | Not started |
 | SEC-10 | Audit events for significant actions | TRD §7; PRD §7 M7 | M7 | `audit_events` | integration test | Not started |
 
@@ -208,44 +208,44 @@ milestone → implementation module → test → status.
 | REL-03 | Indexes on workspace_id, document_id, status, created_at, FTS | TRD §12 | M1/M5 | migrations | migration test | Not started |
 | REL-04 | Every long op: timeout, state transition, safe error, idempotent retry | TRD §12 | M2 | workers | integration tests | Not started |
 | REL-05 | Graceful shutdown; stale job recovery | TRD §12 | M2 | workers | `tests/integration/test_worker_restart.py` | Not started |
-| REL-06 | Separate health checks for PostgreSQL and Ollama | TRD §12 | M0 | `api/v1/health.py` | `tests/api/test_health.py` | Not started |
+| REL-06 | Separate health checks for PostgreSQL and Ollama | TRD §12 | M0 | `core/readiness.py` | `tests/api/test_health.py` | Done |
 
 ## 13. Design system & UX (DRD)
 
 | ID | Requirement | Source | MS | Implementation module | Test case | Status |
 |---|---|---|---|---|---|---|
-| DES-01 | Colour tokens exactly as DRD §2 table, central CSS variables mapped to Tailwind/shadcn | DRD §2, §14 | M0 | `apps/web/src/app/globals.css` | `src/lib/tokens.test.ts` | Not started |
-| DES-02 | Light theme primary; dark only after light is complete; no gradients; no pure black; accent ≈5–10% | DRD §2 | M0 | globals.css | visual review | Not started |
-| DES-03 | Typography: one sans family (Inter/Geist via next/font), mono for technical values, tabular numerals, DRD scale | DRD §3 | M0 | `layout.tsx`, globals.css | visual review | Not started |
-| DES-04 | Layout: sidebar 232–248px, top bar 56–64px, max width ~1440px, 4px spacing, radius 10–12 cards / 8 controls, 1px low-contrast borders, shadows only on overlays | DRD §4 | M0 | app shell | Playwright screenshot | Not started |
-| DES-05 | Lucide icons only, 16–20px nav, stroke 1.75–2px, DRD icon mapping, no emoji | DRD §5 | M0 | shell + components | code review | Not started |
-| DES-06 | SVG wordmark + app icon (page/evidence-node motif, no gradients) | DRD §2, §14 | M0 | `apps/web/src/components/brand/` | visual review | Not started |
-| DES-07 | Sidebar: wordmark, workspace name, primary + secondary nav, teal-tint active state, mobile drawer | DRD §6.1 | M0 | `components/shell/sidebar.tsx` | Vitest | Not started |
-| DES-08 | Top bar: page title, real system status indicator, help link; no decorative search | DRD §6.2 | M0 | `components/shell/topbar.tsx` | Vitest | Not started |
-| DES-09 | Component library variants (Button, Status badge, Data table, Citation chip, Source drawer, Metric card, Code block, Dropzone, Clarification panel, Toast, Skeleton, Dialog) | DRD §8 | M0→M6 | `components/ui/` | Vitest per component | Not started |
-| DES-10 | Motion 120–180ms / 180–240ms; no decorative motion; respect prefers-reduced-motion | DRD §9 | M0 | globals.css | CSS review | Not started |
+| DES-01 | Colour tokens exactly as DRD §2 table, central CSS variables mapped to Tailwind/shadcn | DRD §2, §14 | M0 | `apps/web/src/app/globals.css` | `src/lib/tokens.test.ts` | Done |
+| DES-02 | Light theme primary; dark only after light is complete; no gradients; no pure black; accent ≈5–10% | DRD §2 | M0 | `globals.css` (no `.dark`, no gradients) | `src/lib/tokens.test.ts` | Done |
+| DES-03 | Typography: one sans family (Inter/Geist via next/font), mono for technical values, tabular numerals, DRD scale | DRD §3 | M0 | `layout.tsx` (geist package, self-hosted), `globals.css` | visual check (headless Edge screenshots) | Done |
+| DES-04 | Layout: sidebar 232–248px, top bar 56–64px, max width ~1440px, 4px spacing, radius 10–12 cards / 8 controls, 1px low-contrast borders, shadows only on overlays | DRD §4 | M0 | `components/shell/app-shell.tsx` | visual check at 390/820/1440px | Done |
+| DES-05 | Lucide icons only, 16–20px nav, stroke 1.75–2px, DRD icon mapping, no emoji | DRD §5 | M0 | `components/shell/nav-items.ts` | code review | Done |
+| DES-06 | SVG wordmark + app icon (page/evidence-node motif, no gradients) | DRD §2, §14 | M0 | `components/brand/logo.tsx`, `app/icon.svg` | visual check | Done |
+| DES-07 | Sidebar: wordmark, workspace name, primary + secondary nav, teal-tint active state, mobile drawer | DRD §6.1 | M0 | `components/shell/sidebar-nav.tsx`, `app-shell.tsx` | `sidebar-nav.test.tsx` | Done |
+| DES-08 | Top bar: page title, real system status indicator, help link; no decorative search | DRD §6.2 | M0 | `components/shell/app-shell.tsx` | Vitest | Done |
+| DES-09 | Component library variants (Button, Status badge, Data table, Citation chip, Source drawer, Metric card, Code block, Dropzone, Clarification panel, Toast, Skeleton, Dialog) | DRD §8 | M0→M6 | Button, StatusBadge, Skeleton, Sheet, Tooltip done; rest per milestone | Vitest per component | Partial |
+| DES-10 | Motion 120–180ms / 180–240ms; no decorative motion; respect prefers-reduced-motion | DRD §9 | M0 | `globals.css` | CSS review | Done |
 | DES-11 | No optimistic completion of ingestion/evaluation; destructive actions confirmed | DRD §9 | M1+ | UI | Playwright | Not started |
-| DES-12 | Keyboard: tab order, Enter/Space, Escape, focus trap, visible focus ring | DRD §9; PRD §9 | M0→M7 | shadcn primitives | Playwright a11y | Not started |
-| DES-13 | Responsive behaviour at 1440+/1024/768/<768 per DRD §10 | DRD §10 | M0→M7 | layouts | Playwright multi-viewport screenshots | Not started |
-| DES-14 | WCAG 2.2 AA contrast, visible labels, icon-only names, status not by colour alone, semantic tables, chart summaries | DRD §11; PRD §9 | M0→M7 | all UI | axe via Playwright | Not started |
+| DES-12 | Keyboard: tab order, Enter/Space, Escape, focus trap, visible focus ring | DRD §9; PRD §9 | M0→M7 | skip link, focus ring, Radix primitives; Playwright a11y at M7 | Playwright a11y | Partial |
+| DES-13 | Responsive behaviour at 1440+/1024/768/<768 per DRD §10 | DRD §10 | M0→M7 | manual 390/820/1440px screenshots; Playwright at M7 | Playwright multi-viewport screenshots | Partial |
+| DES-14 | WCAG 2.2 AA contrast, visible labels, icon-only names, status not by colour alone, semantic tables, chart summaries | DRD §11; PRD §9 | M0→M7 | contrast measured + rules in design-system.md | `src/lib/tokens.test.ts` | Partial |
 | DES-15 | Plain language, no anthropomorphic claims, errors explain recovery | DRD §11 | all | UI copy | content review | Not started |
-| DES-16 | Every screen: loading, empty, success, error, disabled, partial, offline/model-unavailable states | DRD §13; Phase 6 brief | all | each page | Vitest/Playwright per page | Not started |
-| DES-17 | `docs/design-system.md` (tokens, type, spacing, icons, states) | DRD §14 | M0 | docs | — | Not started |
+| DES-16 | Every screen: loading, empty, success, error, disabled, partial, offline/model-unavailable states | DRD §13; Phase 6 brief | all | Overview readiness implements loading/error/degraded/ready/disabled | Vitest/Playwright per page | Partial |
+| DES-17 | `docs/design-system.md` (tokens, type, spacing, icons, states) | DRD §14 | M0 | `docs/design-system.md` | — | Done |
 | DES-18 | README screenshots: Overview, Library, Ask w/ citations, Eval Lab, SQL Analyst | DRD §14; PRD §11 | M8 | README | — | Not started |
 | DES-19 | Recharts only where comparison benefits; neutral palette, direct labels, not red/green-only | DRD §7.5, §12 | M5 | Eval Lab | visual review | Not started |
-| DES-20 | No dead buttons or fake data cards | DRD §15 | all | all UI | Playwright | Not started |
+| DES-20 | No dead buttons or fake data cards | DRD §15 | all | unbuilt nav items disabled with explanation (ADR-000 G-7) | Playwright | In progress |
 
 ## 14. Delivery, repository & release (PRD §7, §11, §12; TRD §14, §16, §17)
 
 | ID | Requirement | Source | MS | Implementation module | Test case | Status |
 |---|---|---|---|---|---|---|
-| REP-01 | Repo structure per TRD §14 | TRD §14 | M0 | repo layout | — | In progress |
-| REP-02 | README, docs, issue/PR templates, .gitignore, .env.example, branch strategy, lint/format configs | PRD §7 M0 | M0 | repo root, `.github/` | — | In progress |
-| REP-03 | TRD/PRD/DRD stored in docs/ and matching implemented product | PRD §11; TRD §14 | M0/M8 | `docs/TRD.md` etc. | — | In progress |
-| REP-04 | ADR-001 … ADR-007 | TRD §16; PRD §11 | M0→M6 | `docs/decisions/` | — | In progress |
+| REP-01 | Repo structure per TRD §14 | TRD §14 | M0 | repo layout | — | Partial |
+| REP-02 | README, docs, issue/PR templates, .gitignore, .env.example, branch strategy, lint/format configs | PRD §7 M0 | M0 | README, `.github/` templates, `.env.example`, `docs/branch-strategy.md`, ruff/eslint/prettier configs | — | Done |
+| REP-03 | TRD/PRD/DRD stored in docs/ and matching implemented product | PRD §11; TRD §14 | M0/M8 | `docs/TRD.md`, `PRD.md`, `DRD.md` via `scripts/specs_to_md.py` | — | Done |
+| REP-04 | ADR-001 … ADR-007 | TRD §16; PRD §11 | M0→M6 | ADR-000, -001 (proposed), -007, -008 | — | Partial |
 | REP-05 | Feature branch per milestone; conventional commits; no force-push/history rewrite | PRD §12 | all | git | — | In progress |
-| REP-06 | Clean clone starts with documented commands; Ollama setup explicit | TRD §17; PRD §13 | M0/M8 | README, scripts | manual fresh-clone check | Not started |
+| REP-06 | Clean clone starts with documented commands; Ollama setup explicit | TRD §17; PRD §13 | M0/M8 | README + scripts; fresh-clone check pending | manual fresh-clone check | Partial |
 | REP-07 | Migrations run from empty DB and upgrade from previous release | PRD §11; TRD §17 | M1/M8 | Alembic | CI migration job | Not started |
 | REP-08 | Reproducible, clearly synthetic/public demo seed | PRD §11 | M8 | `scripts/seed_demo.py` | seed test | Not started |
 | REP-09 | Demo video, release tag only after acceptance checks | PRD §7 M8, §11 | M8 | — | — | Not started |
-| REP-10 | Makefile (TRD §14) — plus PowerShell equivalents for Windows | TRD §14 | M0 | `Makefile`, `scripts/*.ps1` | — | Not started |
+| REP-10 | Makefile (TRD §14) — plus PowerShell equivalents for Windows | TRD §14 | M0 | `Makefile`, `scripts/dev.ps1`, `scripts/db.ps1` | — | Done |

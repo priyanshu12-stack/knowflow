@@ -12,7 +12,7 @@ _Last updated: 2026-11-06_
 |---|---|
 | Active milestone | **M0 – Repository foundation** (in progress) |
 | Branch | `feat/m0-foundation` |
-| Last verified commit | — |
+| Last verified commit | `8ffbf42` docs (main) |
 
 ## Development machine profile (measured 2026-11-06)
 
@@ -26,15 +26,15 @@ _Last updated: 2026-11-06_
 | Python | 3.12.7 (Anaconda) | Meets TRD ≥3.12 |
 | Node / npm | 22.13.0 / 11.6.3 | |
 | Ollama | 0.17.1, running, **no models pulled** | Pull at M3 (approved by owner) |
-| Docker | **Not installed** | Native PostgreSQL via conda — see ADR-008 |
-| PostgreSQL | Not installed; conda-forge has `postgresql` + `pgvector 0.8.6` for win-64 | ADR-008 |
+| Docker | **Not installed** | Native PostgreSQL via conda (see ADR-008). The Compose file is validated in CI only |
+| PostgreSQL | 16.15 + pgvector 0.8.6 via conda (PG 17 not solvable with pgvector on win-64) | ADR-008 |
 | Git remote | None (owner chose local commits only for now) | Push deferred |
 
 ## Missing prerequisites
 
 | Prerequisite | Needed by | Status | Setup |
 |---|---|---|---|
-| PostgreSQL 17 + pgvector | M0 | Being installed (conda env `knowflow-pg`) | `scripts/db.ps1 install` |
+| PostgreSQL 16 + pgvector | M0 | **Installed**: conda env `knowflow-pg`, PG 16.15 + pgvector 0.8.6, cluster in `data/postgres` | `scripts/db.ps1 install` / `init` / `start` |
 | `qwen3:4b` | M4 | Not pulled | `ollama pull qwen3:4b` |
 | `nomic-embed-text:v1.5` | M3 | Not pulled | `ollama pull nomic-embed-text:v1.5` |
 | `BAAI/bge-reranker-v2-m3` (optional) | M5 | Not installed; ~2.3 GB weights + torch CPU — likely too heavy for 7.3 GB RAM alongside qwen3:4b; will be measured, not assumed | `pip install -e "apps/api[reranker]"` |
@@ -48,15 +48,16 @@ _Last updated: 2026-11-06_
 - [x] Repository audit (no prior repo, no prior code)
 - [x] Requirements traceability matrix
 - [x] Implementation roadmap (this file)
-- [ ] `git init`, `.gitignore`, `.env.example`, README, CHANGELOG
-- [ ] ADRs: ADR-000 (spec priority), ADR-007 (cost boundary), ADR-008 (native Postgres), ADR-001 draft (model runtime)
-- [ ] Branch strategy doc, issue/PR templates
-- [ ] Native PostgreSQL + pgvector scripts; `infra/docker-compose.yml` for Docker hosts / CI
-- [ ] FastAPI skeleton: config, JSON logging, request_id, error envelope, `/api/v1/health/live`, `/api/v1/health/ready`
-- [ ] Next.js skeleton: Tailwind + shadcn tokens per DRD, app shell, Overview readiness (real data)
-- [ ] Lint/format/typecheck configs (ruff, mypy, ESLint, TS strict)
-- [ ] Tests: pytest (API), Vitest (web)
-- [ ] GitHub Actions CI
+- [x] `git init`, `.gitignore`, `.gitattributes`, `.env.example`, README, CHANGELOG
+- [x] ADRs: ADR-000 (spec priority), ADR-007 (cost boundary), ADR-008 (native Postgres), ADR-001 draft (model runtime)
+- [x] Branch strategy doc, issue/PR templates
+- [x] Native PostgreSQL + pgvector scripts; `infra/docker-compose.yml` for Docker hosts / CI
+- [x] FastAPI skeleton: config, JSON logging, request_id, error envelope, `/api/v1/health/live`, `/api/v1/health/ready`
+- [x] Next.js skeleton: Tailwind + shadcn tokens per DRD, app shell, Overview readiness (real data)
+- [x] Lint/format/typecheck configs (ruff, mypy strict, ESLint, TS strict, Prettier)
+- [x] Tests: pytest (19, incl. real-DB integration), Vitest (39)
+- [x] GitHub Actions CI written. **Not yet run**: there's no remote
+- [ ] Fresh-clone verification (clone → setup → start → health)
 - [ ] **Exit:** clean clone starts web, API and DB; health checks pass; no secrets committed
 
 ### M1 – Data foundation
