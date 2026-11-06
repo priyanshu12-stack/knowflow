@@ -116,6 +116,8 @@ def ask(
         strategy=cfg.strategy,
         top_k=cfg.top_k,
         candidates=settings.rag_candidates,
+        rerank=cfg.rerank,
+        rrf_k=settings.rrf_k,
     )
     scope = Scope(
         workspace_id=workspace_id,
@@ -158,6 +160,7 @@ def ask(
         top_k=cfg.top_k,
         candidates=len(result.candidates),
         sources_supplied=grounded.sources_supplied,
+        reranked=result.reranked,
         timings_ms=timings,
         candidate_ranks=[
             {"chunk_id": str(c.chunk_id), "ranks": c.ranks, "score": round(c.score, 4)}
