@@ -10,6 +10,8 @@ export const RAW_DOC = {
   status: "queued",
   page_count: null,
   chunk_count: null,
+  extracted_char_count: null,
+  citation_granularity: null,
   last_error: null,
   latest_job: {
     id: "j1",

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, FolderOpen, Info, RotateCw, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, FolderOpen, RotateCw, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -8,22 +8,28 @@ import { Button } from "@/components/ui/button";
 import { CopyCommand } from "@/components/ui/copy-command";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { useSystemStatus } from "@/components/system-status/system-status-provider";
 import { ApiError } from "@/lib/api/client";
 import {
   fetchDocuments,
   fetchUploadPolicy,
+  IN_PROGRESS,
+  retryDocument,
   type DocumentPage,
   type LibraryDocument,
   type UploadPolicy,
 } from "@/lib/api/documents";
 
 import { DeleteDocumentDialog } from "./delete-document-dialog";
+import { DocumentDrawer } from "./document-drawer";
 import { DocumentsTable } from "./documents-table";
 import { UploadDropzone } from "./upload-dropzone";
 import { UploadQueue } from "./upload-queue";
 import { useUploadQueue } from "./use-upload-queue";
 
 export const PAGE_SIZE = 25;
+/** How often to refresh while documents are being processed (real worker progress). */
+export const PROGRESS_POLL_MS = 2_000;
 
 type LibraryState =
   | { kind: "loading" }
@@ -64,6 +70,8 @@ export function LibraryView() {
   const [offset, setOffset] = useState(0);
   const [reloadKey, setReloadKey] = useState(0);
   const [toDelete, setToDelete] = useState<LibraryDocument | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const { status: system } = useSystemStatus();
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -83,6 +91,24 @@ export function LibraryView() {
   }, [offset, reloadKey]);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  const processing =
+    state.kind === "loaded" && state.page.items.some((d) => IN_PROGRESS.includes(d.status));
+  useEffect(() => {
+    if (!processing) return;
+    const id = window.setTimeout(reload, PROGRESS_POLL_MS);
+    return () => window.clearTimeout(id);
+  }, [processing, reloadKey, reload]);
+
+  const onRetry = async (doc: LibraryDocument) => {
+    try {
+      await retryDocument(doc.id);
+      toast.info(`Queued “${doc.name}” for processing.`);
+      reload();
+    } catch (err) {
+      toast.error(asApiError(err).message);
+    }
+  };
   const onUploaded = useCallback(() => {
     // Newest documents are listed first, so show page one after an upload.
     setOffset(0);
@@ -107,7 +133,13 @@ export function LibraryView() {
   };
 
   const total = state.kind === "loaded" ? state.page.total : null;
-  const anyQueued = state.kind === "loaded" && state.page.items.some((d) => d.status === "queued");
+  const workerCheck =
+    system.kind === "loaded"
+      ? system.data.checks.find((c) => c.name === "ingestion_worker")
+      : undefined;
+  const workerDown = processing && workerCheck !== undefined && workerCheck.state !== "ok";
+  const openDoc =
+    state.kind === "loaded" ? (state.page.items.find((d) => d.id === openId) ?? null) : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -142,16 +174,16 @@ export function LibraryView() {
         onClearFinished={queue.clearFinished}
       />
 
-      {anyQueued && (
-        // Disabled-with-reason (DRD §13): honest about what M1 does and doesn't do yet.
-        <p className="flex items-start gap-2.5 rounded-xl border bg-card px-5 py-3 text-[14px]">
-          <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-info" />
-          <span>
-            Documents are stored safely and wait in the queue. Text extraction, chunking and
-            indexing arrive with the ingestion pipeline (milestone M2); until then documents stay
-            Queued and can&apos;t be searched.
-          </span>
-        </p>
+      {workerDown && (
+        // DRD §13 "offline": say why nothing is moving and give the exact fix.
+        <div role="status" className="rounded-xl border bg-card px-5 py-4">
+          <StatusBadge tone="warning">Ingestion worker not running</StatusBadge>
+          <p className="mt-2 max-w-prose text-[14px]">
+            Uploaded documents are stored and queued, but nothing processes them until the worker is
+            started in another terminal:
+          </p>
+          <CopyCommand command="./scripts/dev.ps1 worker" />
+        </div>
       )}
 
       <section aria-labelledby="documents-heading" className="rounded-xl border bg-card">
@@ -197,7 +229,12 @@ export function LibraryView() {
 
         {state.kind === "loaded" && state.page.total > 0 && (
           <>
-            <DocumentsTable documents={state.page.items} onDelete={setToDelete} />
+            <DocumentsTable
+              documents={state.page.items}
+              onDelete={setToDelete}
+              onOpen={(d) => setOpenId(d.id)}
+              onRetry={(d) => void onRetry(d)}
+            />
             {state.page.total > PAGE_SIZE && (
               <nav
                 aria-label="Document pages"
@@ -231,6 +268,12 @@ export function LibraryView() {
           </>
         )}
       </section>
+
+      <DocumentDrawer
+        document={openDoc}
+        onClose={() => setOpenId(null)}
+        onRetry={(d) => void onRetry(d)}
+      />
 
       <DeleteDocumentDialog
         document={toDelete}
