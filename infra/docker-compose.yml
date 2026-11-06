@@ -1,0 +1,27 @@
+# PostgreSQL 16 + pgvector for Docker hosts (TRD §3, §13). Ollama runs on the host.
+# Usage (from repo root):  docker compose -f infra/docker-compose.yml --env-file .env up -d
+# Machines without Docker: see scripts/db.ps1 and docs/decisions/ADR-008.
+name: knowflow
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    ports:
+      # Bound to loopback only: never expose the database publicly.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - knowflow_pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  knowflow_pgdata:

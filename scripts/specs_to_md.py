@@ -1,4 +1,5 @@
 """Convert a DOCX spec into Markdown, preserving headings, lists, tables and line breaks."""
+
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
@@ -65,7 +66,9 @@ def walk(body, out):
 def main(src, dst):
     z = zipfile.ZipFile(src)
     root = ET.fromstring(z.read("word/document.xml"))
-    out = [f"<!-- Generated from {src.split('/')[-1]} (authoritative source). Do not edit by hand. -->"]
+    out = [
+        f"<!-- Generated from {src.split('/')[-1]} (authoritative source). Do not edit by hand. -->"
+    ]
     walk(root.find(f"{W}body"), out)
     with open(dst, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(out) + "\n")
