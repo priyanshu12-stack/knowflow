@@ -42,6 +42,17 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = Field(default=120, gt=0, le=1800)
     generation_timeout_seconds: float = Field(default=300, gt=0, le=3600)
     generation_num_ctx: int = Field(default=4096, ge=1024, le=131_072)
+    # RAG (TRD §6.2). min score is a provisional cosine threshold for dense retrieval; it is
+    # re-calibrated on the evaluation set (M5) and can be disabled with a negative value.
+    rag_top_k: int = Field(default=6, ge=1, le=20)
+    rag_candidates: int = Field(default=20, ge=1, le=100)
+    rag_context_chars: int = Field(default=6000, ge=500, le=60_000)
+    rag_min_dense_score: float = Field(default=0.45, ge=-1, le=1)
+    rag_temperature: float = Field(default=0.1, ge=0, le=1)
+    # Local generation is CPU-bound: queue at most this many at once (TRD §11 DoS).
+    max_concurrent_generations: int = Field(default=1, ge=1, le=8)
+    generation_queue_wait_seconds: float = Field(default=10, ge=0, le=600)
+
     # Optional CPU-heavy second stage (TRD §4.2); off unless measured to help.
     enable_reranker: bool = False
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
