@@ -65,6 +65,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -h localhost -U knowflow -d knowflow -f ../../infra/postgres/init/01-extensions.sql
         env:
           PGPASSWORD: ci-only-password
+      - name: Apply migrations to a fresh database
+        run: alembic upgrade head
+      - name: Models match migrations
+        run: alembic check
       - run: ruff check .
       - run: ruff format --check .
       - run: mypy

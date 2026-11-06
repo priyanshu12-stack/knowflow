@@ -3,13 +3,14 @@
   Developer commands for Windows (mirrors the Makefile targets).
 .EXAMPLE
   ./scripts/dev.ps1 setup   # create API venv + install web deps
+  ./scripts/dev.ps1 migrate # apply database migrations (alembic upgrade head)
   ./scripts/dev.ps1 api     # FastAPI on http://127.0.0.1:8000
   ./scripts/dev.ps1 web     # Next.js on http://localhost:3000
   ./scripts/dev.ps1 check   # all linters, type checks and tests
 #>
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('setup', 'api', 'web', 'lint', 'test', 'check')]
+    [ValidateSet('setup', 'migrate', 'api', 'web', 'lint', 'test', 'check')]
     [string]$Command
 )
 
@@ -45,6 +46,7 @@ switch ($Command) {
             Write-Host 'Created .env from .env.example - change POSTGRES_PASSWORD before ./scripts/db.ps1 init'
         }
     }
+    'migrate' { Assert-Venv; Invoke-Step $Api { & "$Py\alembic.exe" upgrade head } }
     'api' { Assert-Venv; Invoke-Step $Api { & "$Py\uvicorn.exe" app.main:app --host 127.0.0.1 --port 8000 --reload } }
     'web' { Invoke-Step $Web { npm run dev } }
     'lint' {

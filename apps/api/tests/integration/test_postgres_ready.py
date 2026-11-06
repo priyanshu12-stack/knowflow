@@ -1,19 +1,12 @@
 """STK-05: real PostgreSQL + pgvector readiness. Runs only with KNOWFLOW_RUN_INTEGRATION=1."""
 
-import os
-
 import pytest
 
 from app.core.readiness import check_postgres
 from app.db.session import get_engine
 
-pytestmark = [
-    pytest.mark.integration,
-    pytest.mark.skipif(
-        os.environ.get("KNOWFLOW_RUN_INTEGRATION") != "1",
-        reason="set KNOWFLOW_RUN_INTEGRATION=1 with a running database",
-    ),
-]
+# Skipped unless KNOWFLOW_RUN_INTEGRATION=1 (see tests/conftest.py).
+pytestmark = pytest.mark.integration
 
 
 def test_postgres_and_pgvector_are_ready() -> None:

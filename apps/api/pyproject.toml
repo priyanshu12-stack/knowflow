@@ -11,6 +11,8 @@ dependencies = [
     "sqlalchemy>=2.0.36,<2.1",
     "psycopg[binary]>=3.2,<4",
     "httpx>=0.28,<1",
+    "alembic>=1.14,<2",
+    "python-multipart>=0.0.20",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +36,10 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "S", "SIM", "RUF", "ASYNC"]
 ignore = []
+
+[tool.ruff.lint.isort]
+# The local alembic/ migrations folder must not make the `alembic` package look first-party.
+known-third-party = ["alembic"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106"]

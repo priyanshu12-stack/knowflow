@@ -3,7 +3,7 @@ API := apps/api
 WEB := apps/web
 PY  := $(API)/.venv/bin
 
-.PHONY: setup db-up db-down api web lint test check
+.PHONY: setup db-up db-down migrate api web lint test check
 
 setup:
 	python3 -m venv $(API)/.venv
@@ -16,6 +16,9 @@ db-up:
 
 db-down:
 	docker compose -f infra/docker-compose.yml --env-file .env down
+
+migrate:
+	cd $(API) && .venv/bin/alembic upgrade head
 
 api:
 	cd $(API) && .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
