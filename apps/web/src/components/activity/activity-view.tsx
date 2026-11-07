@@ -136,7 +136,7 @@ export function ActivityView() {
             </p>
           )}
           {events && events.length > 0 && (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full min-w-[720px] text-[14px]">
                 <caption className="sr-only">Audit events</caption>
                 <thead>
@@ -202,7 +202,7 @@ export function ActivityView() {
             </p>
           )}
           {jobs && jobs.length > 0 && (
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full min-w-[720px] text-[14px]">
                 <caption className="sr-only">Ingestion jobs</caption>
                 <thead>

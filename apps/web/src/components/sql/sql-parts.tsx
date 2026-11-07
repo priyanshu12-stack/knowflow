@@ -213,7 +213,7 @@ export function ResultsTable({ columns, rows }: { columns: string[]; rows: unkno
     );
   }
   return (
-    <div className="max-h-[480px] overflow-auto rounded-lg border">
+    <div className="relative max-h-[480px] overflow-auto rounded-lg border">
       <table className="w-full text-[13px]">
         <caption className="sr-only">Query results</caption>
         <thead className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">

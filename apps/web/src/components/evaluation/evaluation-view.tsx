@@ -229,7 +229,12 @@ function DatasetPanel({
         <summary className="cursor-pointer text-[14px] font-medium">Add a dataset</summary>
         <div className="mt-3 flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" onClick={() => void sample()} disabled={busy}>
+            <Button
+              variant="outline"
+              onClick={() => void sample()}
+              disabled={busy}
+              className="h-auto min-h-9 max-w-full py-2 whitespace-normal"
+            >
               <FlaskConical aria-hidden="true" />
               Load sample documents and gold set
             </Button>
@@ -538,7 +543,7 @@ export function EvaluationView() {
             </p>
           )}
           {runs && runs.length > 0 && (
-            <div className="mt-3 overflow-x-auto">
+            <div className="relative mt-3 overflow-x-auto">
               <table className="w-full min-w-[980px] text-[14px]">
                 <caption className="sr-only">Evaluation runs and their metrics</caption>
                 <thead>
@@ -725,7 +730,7 @@ function RunDetailPanel({ run, onClose }: { run: RunDetail; onClose: () => void 
         </label>
       </div>
       <div className="mt-2 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        <div className="max-h-[560px] overflow-auto rounded-lg border">
+        <div className="relative max-h-[560px] overflow-auto rounded-lg border">
           <table className="w-full text-[13px]">
             <caption className="sr-only">Per-case results</caption>
             <thead className="sticky top-0 bg-card">
