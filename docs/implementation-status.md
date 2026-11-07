@@ -10,7 +10,7 @@ _Last updated: 2026-11-07_
 
 | Item | Value |
 |---|---|
-| Active milestone | **M6 – Text-to-SQL: complete**. Next: M7 – Product polish and safety |
+| Active milestone | **M7 – Product polish and safety: complete**. Next: M8 – Release |
 | Branch | `main` (M0 merged from `feat/m0-foundation`) |
 | Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
@@ -38,7 +38,7 @@ _Last updated: 2026-11-07_
 | `qwen3:4b` | M4 | **Pulled** 2026-11-07 (2.5 GB, id 359d7dd4bcda) | `ollama pull qwen3:4b` |
 | `nomic-embed-text:v1.5` | M3 | **Pulled** 2026-11-07 (274 MB, id 0a109f422b47) | `ollama pull nomic-embed-text:v1.5` |
 | `BAAI/bge-reranker-v2-m3` (optional) | M5 | Not installed; ~2.3 GB weights + torch CPU — likely too heavy for 7.3 GB RAM alongside qwen3:4b; will be measured, not assumed | `pip install -e "apps/api[reranker]"` |
-| Playwright browsers | M7 | Not installed | `npx playwright install chromium` |
+| Playwright browsers | M7 | Not needed locally: `PW_CHANNEL=msedge` uses the installed Edge. CI installs Chromium | `npx playwright install chromium` |
 | GitHub remote + credentials | M8 push | Not configured | owner to provide repo URL |
 
 ## Milestone checklist (PRD §7)
@@ -169,9 +169,22 @@ Not done (recorded in ADR-000 G-8): RAG `/chat/clarify` is not exposed. Conversa
 | Not measured | SQL accuracy benchmark (no SQL gold set yet) |
 
 ### M7 – Product polish and safety
-- [ ] Prompt-injection tests, workspace filters, file limits, secret redaction, audit events
-- [ ] Activity page; all empty/loading/error states; responsive + accessibility pass; Playwright
-- [ ] **Exit:** security and UX acceptance tests pass; no dead-end screens
+- [x] Prompt injection: evidence delimited + policy (unit), injection sample in the gold set (real model: resisted 1/1), gated real-model test passes (no "PWNED", answers from the legitimate text)
+- [x] Workspace isolation sweep over every resource endpoint (documents, chunks, extraction, search, conversations, feedback, activity); file limits (size, pages, chars, parser timeout) from M1/M2
+- [x] Secret redaction in logs: by key and by value (connection URLs, `password=`, bearer tokens, Fernet tokens), including tracebacks
+- [x] Audit events (migration 0007): every user action + worker ingestion outcomes, with request ids; ids/counts/statuses only (tested: question text never stored)
+- [x] Activity page (events by category, ingestion jobs with errors and durations), Help page, Overview metrics + recent activity + quick actions, workspace name in the sidebar; no disabled nav items remain
+- [x] Playwright suite (`npm run e2e`, mocked API): 8 pages × 390/820/1440 px without console errors or horizontal overflow, 404 escape, skip link, Journey A source drawer, sidebar navigation; added to CI
+- [x] **Exit:** security and UX acceptance tests pass; no dead-end screens
+
+#### M7 verification record (2026-11-07)
+
+| Check | Result |
+|---|---|
+| pytest | 282 passed + 3 opt-in real-model tests (all 3 pass when run with `KNOWFLOW_RUN_OLLAMA=1`) |
+| vitest | 80/80 |
+| Playwright (Edge, production build) | 28/28 |
+| Not done | Automated contrast audit (tokens were checked by hand in M0, `tokens.test.ts`); screen-reader pass with a real assistive technology |
 
 ### M8 – Release and deployment
 - [ ] Production build, migrations, seed demo, CI green, docs, evaluation report, screenshots, demo video, release tag
