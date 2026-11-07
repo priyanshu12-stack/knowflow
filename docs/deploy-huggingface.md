@@ -1,5 +1,10 @@
 # Deploying KnowFlow to a free Hugging Face Space
 
+> **Not free anymore (checked 2026-11-07).** Creating a Docker Space on `cpu-basic` returned
+> HTTP 402: *"hosting Gradio and Docker Spaces on free cpu-basic requires a PRO subscription."*
+> These files still work with a PRO account. For a no-card option use
+> [Azure for Students](deploy-azure.md).
+
 This puts KnowFlow online for free, with **no credit card**, on a Hugging Face Docker Space
 ("CPU basic": 2 vCPU, 16 GB RAM at the time of writing; check huggingface.co/pricing).
 

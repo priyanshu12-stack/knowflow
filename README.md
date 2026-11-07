@@ -460,7 +460,8 @@ docs          TRD/PRD/DRD, traceability matrix, status, ADRs, architecture, eval
 - [Decisions (ADR-000 … ADR-008)](docs/decisions/README.md) · [Evaluation report](docs/evaluation/README.md) ·
   [Building a gold set](docs/evaluation/dataset-guide.md) · [Demo data sources](docs/demo-data-sources.md) ·
   [Design system](docs/design-system.md) · [Changelog](CHANGELOG.md)
-- [Deploying for free on Hugging Face Spaces](docs/deploy-huggingface.md) (no credit card; the models still run inside the container)
+- Deployment: [Azure for Students](docs/deploy-azure.md) (no credit card; start/stop for demos) ·
+  [Hugging Face Spaces](docs/deploy-huggingface.md) (needs HF PRO for Docker Spaces)
 
 ---
 
