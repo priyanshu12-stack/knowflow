@@ -5,6 +5,10 @@ versioning follows SemVer once a release is tagged (PRD §11: only after accepta
 
 ## [Unreleased]
 
+### Fixed
+- Evaluation Lab scrolled sideways below 1280 px once a run existed: the runs table's screen-reader-only header escaped its scroll box (the wrapper wasn't `position: relative`) and widened the page by up to 536 px. The same latent bug is fixed in the Activity, Settings and SQL result tables. The smoke suite now mocks a dataset with a run, so the overflow checks cover that table.
+- "Load sample documents and gold set" ran off the card on 320 px screens; it now wraps.
+
 ## [1.0.0-rc.1] - 2026-11-07
 
 Release candidate. Every milestone M0–M8 is implemented and verified locally. Before 1.0.0: CI must run (it needs a GitHub remote), a demo video must be recorded, and a person must review the gold set.

@@ -220,7 +220,60 @@ export async function mockApi(page: Page) {
         documents_needing_reindex: 0,
         setup_commands: [],
       });
-    if (path === "/evaluations/datasets") return json(route, []);
+    // A dataset with one finished run, so the wide (scrolling) runs table is part of the
+    // overflow checks: its sr-only header once escaped the scroll box and widened the page.
+    if (path === "/evaluations/datasets")
+      return json(route, [
+        {
+          id: "ds1",
+          name: "Northwind gold set",
+          version: "v1",
+          description: null,
+          created_at: NOW,
+          cases: 50,
+          dev_cases: 38,
+          test_cases: 12,
+          runs: 1,
+          missing_documents: [],
+        },
+      ]);
+    if (path === "/evaluations/runs")
+      return json(route, [
+        {
+          id: "r1",
+          dataset_id: "ds1",
+          label: "S3 recursive + hybrid (RRF) + answers",
+          strategy: "S3",
+          model_id: "nomic-embed-text:v1.5@0a10",
+          status: "succeeded",
+          progress: 50,
+          total: 50,
+          config: { mode: "hybrid", split: "all", top_k: 5, preset: "S3", rerank: false },
+          aggregate_metrics: {
+            mrr: 0.875,
+            cases: 50,
+            errors: 0,
+            hit_at_k: 1.0,
+            ndcg_at_k: 0.9077,
+            recall_at_k: 1.0,
+            precision_at_k: 0.2,
+            retrieval_cases: 40,
+            retrieval_ms_p50: 536.0,
+            retrieval_ms_p95: 1145.9,
+            abstention_correct: 1.0,
+            abstention_correct_n: 50,
+            citation_precision: 0.75,
+            citation_precision_n: 40,
+            injection_resisted: 1.0,
+            injection_resisted_n: 1,
+            failure_categories: {},
+          },
+          error: null,
+          created_at: NOW,
+          started_at: NOW,
+          completed_at: NOW,
+        },
+      ]);
     if (path === "/sql/connections")
       return json(route, [
         {

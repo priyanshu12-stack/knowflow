@@ -233,7 +233,7 @@ export function SettingsView() {
           </>
         )}
         {data.installed.length > 0 && (
-          <div className="mt-4 overflow-x-auto">
+          <div className="relative mt-4 overflow-x-auto">
             <table className="w-full min-w-[560px] text-[14px]">
               <caption className="sr-only">Installed local models</caption>
               <thead>
