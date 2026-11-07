@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api.deps import SessionDep, SettingsDep, WorkspaceDep
+from app.modules.audit import audit_commit
 from app.modules.models import service
 from app.schemas.settings import (
     ModelSettingsOut,
@@ -36,6 +37,17 @@ def save_models(
     body: SaveRequest, session: SessionDep, settings: SettingsDep, workspace: WorkspaceDep
 ) -> SaveResponse:
     reembed = service.save(session, settings, body)
+    audit_commit(
+        session,
+        workspace.id,
+        "settings.models_saved",
+        "settings",
+        None,
+        generation_model=body.generation_model,
+        embedding_model=body.embedding_model,
+        reranker_enabled=body.reranker_enabled,
+        reembed_required=reembed,
+    )
     return SaveResponse(
         settings=service.describe(session, settings, workspace.id), reembed_required=reembed
     )
@@ -44,4 +56,6 @@ def save_models(
 @router.post("/reindex", response_model=ReindexResponse, status_code=202)
 def reindex(session: SessionDep, workspace: WorkspaceDep) -> ReindexResponse:
     """Queue all documents for processing again, e.g. after changing the embedding model."""
-    return ReindexResponse(queued=service.reindex_all(session, workspace.id))
+    queued = service.reindex_all(session, workspace.id)
+    audit_commit(session, workspace.id, "settings.reindex", "document", None, queued=queued)
+    return ReindexResponse(queued=queued)

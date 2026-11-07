@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from app.api.deps import SessionDep, WorkspaceDep
 from app.core.errors import AppError, ErrorResponse
+from app.modules.audit import audit_commit
 from app.modules.workspaces.service import rename_workspace
 from app.schemas.workspaces import WorkspaceOut, WorkspaceUpdate
 
@@ -27,4 +28,6 @@ def update_workspace(
 ) -> WorkspaceOut:
     if workspace_id != workspace.id:
         raise AppError("workspace_not_found", "This workspace doesn't exist.", 404)
-    return WorkspaceOut.model_validate(rename_workspace(session, workspace, body.name))
+    renamed = rename_workspace(session, workspace, body.name)
+    audit_commit(session, workspace.id, "workspace.renamed", "workspace", workspace.id)
+    return WorkspaceOut.model_validate(renamed)

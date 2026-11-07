@@ -7,6 +7,7 @@ from fastapi import APIRouter, Response, status
 
 from app.api.deps import SessionDep, SettingsDep, WorkspaceDep
 from app.core.errors import ErrorResponse
+from app.modules.audit import audit_commit
 from app.modules.models.registry import chat_model
 from app.modules.sql_assistant import service
 from app.schemas.sql import (
@@ -35,7 +36,16 @@ def test_connection(
     body: ConnectionIn, session: SessionDep, settings: SettingsDep, workspace: WorkspaceDep
 ) -> ConnectionOut:
     """Connect, verify the role is read-only and save. The password is never returned."""
-    return service.test_and_save(session, settings, workspace.id, body)
+    conn = service.test_and_save(session, settings, workspace.id, body)
+    audit_commit(
+        session,
+        workspace.id,
+        "sql.connection_added",
+        "sql_connection",
+        conn.id,
+        database=conn.database_name,
+    )
+    return conn
 
 
 @router.delete(
@@ -45,6 +55,7 @@ def delete_connection(
     connection_id: uuid.UUID, session: SessionDep, workspace: WorkspaceDep
 ) -> Response:
     service.delete_connection(session, workspace.id, connection_id)
+    audit_commit(session, workspace.id, "sql.connection_deleted", "sql_connection", connection_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -65,7 +76,16 @@ def put_glossary(
     session: SessionDep,
     workspace: WorkspaceDep,
 ) -> list[GlossaryTermIO]:
-    return service.save_glossary(session, workspace.id, connection_id, body)
+    saved = service.save_glossary(session, workspace.id, connection_id, body)
+    audit_commit(
+        session,
+        workspace.id,
+        "sql.glossary_saved",
+        "sql_connection",
+        connection_id,
+        terms=len(saved),
+    )
+    return saved
 
 
 @router.post("/query", response_model=SqlAnswerOut, responses=_ERR)
@@ -73,7 +93,17 @@ def query(
     body: SqlQueryIn, session: SessionDep, settings: SettingsDep, workspace: WorkspaceDep
 ) -> SqlAnswerOut:
     """Either a clarification (nothing executed) or validated read-only SQL with its result."""
-    return service.ask(session, settings, workspace.id, body, chat_model(session, settings))
+    answer = service.ask(session, settings, workspace.id, body, chat_model(session, settings))
+    audit_commit(
+        session,
+        workspace.id,
+        f"sql.{answer.status}",
+        "sql_query",
+        answer.query_id,
+        rows=answer.row_count,
+        duration_ms=answer.duration_ms,
+    )
+    return answer
 
 
 @router.get(
