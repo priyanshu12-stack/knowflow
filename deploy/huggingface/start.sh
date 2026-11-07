@@ -80,7 +80,7 @@ wait_for "Ollama" "http://127.0.0.1:11434/api/version" 60
 (cd "$API_DIR" && "$PY/python" -m app.modules.sql_assistant.demo)
 
 # --- API, worker, web -------------------------------------------------------------------------
-(cd "$API_DIR" && exec "$PY/uvicorn" app.main:app --host 127.0.0.1 --port 8000 --no-access-log) \
+(cd "$API_DIR" && exec "$PY/uvicorn" app.main:app --host 127.0.0.1 --port 8000 --no-access-log --timeout-keep-alive 75) \
   >"$LOG_DIR/api.log" 2>&1 &
 API_PID=$!
 (cd "$API_DIR" && exec "$PY/python" -m app.workers.ingestion) >"$LOG_DIR/worker.log" 2>&1 &

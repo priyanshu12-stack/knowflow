@@ -98,8 +98,10 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 }
+# Keep-alive must outlive the Next.js proxy's pooled sockets; uvicorn's 5 s default races
+# with them and surfaces as sporadic ECONNRESET -> HTTP 500 in the browser.
 unit knowflow-api "KnowFlow API" "$APP/apps/api" \
-  "$APP/apps/api/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log"
+  "$APP/apps/api/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log --timeout-keep-alive 75"
 unit knowflow-worker "KnowFlow ingestion worker" "$APP/apps/api" \
   "$APP/apps/api/.venv/bin/python -m app.workers.ingestion"
 unit knowflow-web "KnowFlow web" "$APP/apps/web" \
