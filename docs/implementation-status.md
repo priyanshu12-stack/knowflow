@@ -10,7 +10,7 @@ _Last updated: 2026-11-07_
 
 | Item | Value |
 |---|---|
-| Active milestone | **M7 – Product polish and safety: complete**. Next: M8 – Release |
+| Active milestone | **M8 – Release: release candidate `v1.0.0-rc.1`**. Remaining: push to a remote so CI runs, demo video, human review of the gold set |
 | Branch | `main` (M0 merged from `feat/m0-foundation`) |
 | Last verified commit | `43ca513` fix(scripts), merged to `main` |
 
@@ -187,8 +187,21 @@ Not done (recorded in ADR-000 G-8): RAG `/chat/clarify` is not exposed. Conversa
 | Not done | Automated contrast audit (tokens were checked by hand in M0, `tokens.test.ts`); screen-reader pass with a real assistive technology |
 
 ### M8 – Release and deployment
-- [ ] Production build, migrations, seed demo, CI green, docs, evaluation report, screenshots, demo video, release tag
-- [ ] **Exit:** a new machine can follow setup docs and run locally; CI green
+- [x] Production build (`next build` + `next start`), migrations 0001–0007, `seed-demo` + sample loader, evaluation report, README with real screenshots, traceability matrix fully updated (152 Done / 16 Partial / 3 Deferred, 0 Not started), demo data sources, dataset guide, CHANGELOG
+- [x] Local tag `v1.0.0-rc.1`
+- [ ] CI green: **not run**, because there's no GitHub remote (owner decision); needs a remote and a push
+- [ ] Demo video: **not recorded**
+- [~] **Exit:** a new machine can follow the setup docs and run locally (fresh-clone check below); CI green is pending a remote
+
+#### M8 verification record (2026-11-07)
+
+| Check | Result |
+|---|---|
+| Fresh clone of `feat/m8-release` into an empty folder → `dev.ps1 setup` → `dev.ps1 check` | Pass: new venv + `npm ci`, ruff/mypy/eslint/prettier/tsc clean, pytest 282 passed (3 opt-in skipped), vitest 80/80, `next build` OK |
+| Playwright smoke suite (production build, Edge) | 28/28 |
+| Real-model tests (`KNOWFLOW_RUN_OLLAMA=1`) | 3/3 (embedding dimension, structured JSON, prompt injection resisted) |
+| README screenshots | Captured from the running app with real data (`docs/screenshots/`) |
+| CI / Docker Compose up / demo video | **Not run / not recorded** (no remote, no Docker, ADR-008) |
 
 ## Benchmark status
 

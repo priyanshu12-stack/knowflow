@@ -1,7 +1,7 @@
 # Architecture Overview
 
-Source of truth: [TRD §5](../TRD.md). This page documents what is **implemented**; the TRD
-documents the target. Sections are added as milestones land.
+Source of truth: [TRD §5](../TRD.md). This page documents what is **implemented** (v1.0.0-rc.1);
+the TRD documents the target. Decisions and their evidence are in the [ADRs](../decisions/README.md).
 
 ## Logical architecture (target, TRD §5)
 
@@ -21,7 +21,22 @@ FastAPI (apps/api) ── one codebase, clear modules ── one DB-backed worke
    └──► Ollama on host (qwen3:4b generation, nomic-embed-text embeddings)
 ```
 
-## Implemented so far
+## Implemented (M1–M7)
+
+| Concern | Implementation |
+|---|---|
+| Processes | `uvicorn app.main:app` (API) and `python -m app.workers.ingestion` (one worker: ingestion jobs first, then evaluation runs, both claimed with `FOR UPDATE SKIP LOCKED`) |
+| Data | 7 Alembic migrations: workspaces, documents, ingestion_jobs, document_sections, chunks (generated `tsvector` + GIN), worker_heartbeats, embedding_versions, chunk_embeddings (untyped `vector`), model_settings, conversations, messages, message_feedback, evaluation_{datasets,cases,runs,results}, sql_connections, sql_glossary_terms, sql_queries, audit_events |
+| Ingestion | validation → streamed SHA-256 + size cap → generated storage key → worker: extraction in a killable child process → fixed + recursive chunks → batched nomic embeddings (task prefixes, heading context) → one transaction writes sections, chunks and vectors and marks the document ready. Retries back off; stale jobs are recovered |
+| Retrieval | dense: exact cosine in the active embedding version · lexical: OR-of-terms FTS + `ts_rank_cd` · hybrid: RRF (k=60) · optional CrossEncoder rerank |
+| RAG | pack (dedupe + char budget) → abstain early (no / weak evidence) → JSON-schema generation (`rag-answer-v2`, evidence delimited as untrusted) → Pydantic → citation verification (invalid markers dropped, uncited answers become abstentions) |
+| SQL Analyst | separate `knowflow_demo` database + SELECT-only role · glossary clarification before any model call · `sql-v3` generation with schema comments and FK hints · SQLGlot AST validation · READ ONLY transaction with timeouts and a row cap (ADR-006) |
+| Evaluation | evidence matchers (document + quote/page) so labels survive re-indexing · deterministic metrics · resumable runs with full config + machine profile |
+| Concurrency | one shared generation gate (`modules/models/gate.py`) for RAG and SQL; readiness reports a busy Ollama as busy rather than down |
+| Safety | workspace filter in every query; log redaction by key and by value; audit events with request ids (ids/counts/statuses only); write-only, Fernet-encrypted connection secrets |
+| Web | Next.js App Router pages: Overview, Library, Ask, SQL Analyst, Evaluation Lab, Models & Settings, Activity, Help; same-origin proxy with a 600 s timeout for CPU generation |
+
+## M0 foundation
 
 ### M0 – foundation
 
