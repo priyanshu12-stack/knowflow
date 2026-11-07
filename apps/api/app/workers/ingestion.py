@@ -34,6 +34,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.db.models import Chunk, Document, DocumentSection, IngestionJob, WorkerHeartbeat
+from app.modules import audit
 from app.modules.documents import chunking
 from app.modules.documents.extraction import (
     Extraction,
@@ -204,6 +205,16 @@ def _fail(pipeline: Pipeline, job_id: uuid.UUID, error: IngestionError) -> None:
             job.status, job.completed_at = "failed", _now()
             if document:
                 document.status = "failed"
+        audit.record(
+            session,
+            workspace_id=document.workspace_id if document else None,
+            action="ingestion.failed" if job.status == "failed" else "ingestion.retry_scheduled",
+            resource_type="document",
+            resource_id=job.document_id,
+            actor="worker",
+            error_code=error.code,
+            attempt=job.attempts,
+        )
         session.commit()
         logger.warning(
             "ingestion_failed",
@@ -338,6 +349,17 @@ def _complete(
         document.extracted_char_count = extraction.char_count
         document.citation_granularity = extraction.granularity
         job.status, job.stage, job.completed_at = "succeeded", None, _now()
+        audit.record(
+            session,
+            workspace_id=workspace_id,
+            action="ingestion.succeeded",
+            resource_type="document",
+            resource_id=doc_id,
+            actor="worker",
+            chunks=len(chunks),
+            pages=extraction.page_count,
+            attempt=job.attempts,
+        )
         session.commit()
 
 

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import SessionDep, SettingsDep, StorageDep, WorkspaceDep
 from app.core.errors import AppError, ErrorResponse
 from app.db.models import Document
+from app.modules.audit import audit_commit
 from app.modules.documents import repository, service
 from app.modules.documents.status import DocumentStatus
 from app.modules.documents.validation import SUPPORTED_FORMATS
@@ -87,6 +88,15 @@ def upload_document(
         result.document.id
     )
     document = service.to_document_out(result.document, latest)
+    audit_commit(
+        session,
+        workspace.id,
+        f"document.{result.outcome}",
+        "document",
+        document.id,
+        file_type=document.file_type,
+        size_bytes=document.size_bytes,
+    )
     return UploadResult(
         outcome=result.outcome,
         document_id=document.id,
@@ -149,6 +159,7 @@ def retry_document(
     if document is None:
         raise _not_found()
     service.retry_document(session, document)
+    audit_commit(session, workspace.id, "document.retry", "document", document.id)
     return _document_out(session, document)
 
 
@@ -213,5 +224,6 @@ def delete_document(
     document_id: uuid.UUID, session: SessionDep, storage: StorageDep, workspace: WorkspaceDep
 ) -> Response:
     """Idempotent: deleting a missing (or foreign-workspace) document also returns 204."""
-    service.delete_document(session, storage, workspace.id, document_id)
+    if service.delete_document(session, storage, workspace.id, document_id):
+        audit_commit(session, workspace.id, "document.deleted", "document", document_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

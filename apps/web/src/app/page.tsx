@@ -1,4 +1,5 @@
 import { CurrentDate } from "@/components/overview/current-date";
+import { OverviewDashboard } from "@/components/overview/overview-dashboard";
 import { WorkspaceSummary } from "@/components/overview/workspace-summary";
 import { ReadinessPanel } from "@/components/system-status/readiness-panel";
 
@@ -23,6 +24,7 @@ export default function OverviewPage() {
       </header>
       <WorkspaceSummary />
       <ReadinessPanel />
+      <OverviewDashboard />
     </div>
   );
 }

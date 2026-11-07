@@ -3,6 +3,8 @@
 import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+import { WorkspaceName } from "./workspace-name";
 import { useState } from "react";
 
 import { Wordmark } from "@/components/brand/logo";
@@ -22,7 +24,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
           <Wordmark />
         </Link>
         {/* Single local workspace in v1 (TRD §2); becomes the persisted name in M1. */}
-        <p className="pl-8 text-[12px] text-muted-foreground">Local workspace</p>
+        <WorkspaceName />
       </div>
       <SidebarNav onNavigate={onNavigate} />
     </div>

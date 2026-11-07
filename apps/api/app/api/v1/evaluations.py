@@ -8,6 +8,7 @@ from fastapi import APIRouter, File, Query, Response, UploadFile, status
 from app.api.deps import SessionDep, SettingsDep, StorageDep, WorkspaceDep
 from app.core.config import REPO_ROOT
 from app.core.errors import ErrorResponse
+from app.modules.audit import audit_commit
 from app.modules.evaluation import runner, service
 from app.modules.evaluation.importer import MAX_BYTES
 from app.schemas.evaluation import (
@@ -33,7 +34,9 @@ _404: dict[int | str, dict[str, Any]] = {404: {"model": ErrorResponse}}
     responses={409: {"model": ErrorResponse}},
 )
 def create_dataset(body: DatasetIn, session: SessionDep, workspace: WorkspaceDep) -> DatasetOut:
-    return service.dataset_out(session, service.create_dataset(session, workspace.id, body))
+    ds = service.create_dataset(session, workspace.id, body)
+    audit_commit(session, workspace.id, "evaluation.dataset_created", "dataset", ds.id)
+    return service.dataset_out(session, ds)
 
 
 @router.get("/datasets", response_model=list[DatasetOut])
@@ -49,6 +52,7 @@ def get_dataset(dataset_id: uuid.UUID, session: SessionDep, workspace: Workspace
 @router.delete("/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_dataset(dataset_id: uuid.UUID, session: SessionDep, workspace: WorkspaceDep) -> Response:
     service.delete_dataset(session, workspace.id, dataset_id)
+    audit_commit(session, workspace.id, "evaluation.dataset_deleted", "dataset", dataset_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -67,6 +71,15 @@ async def import_cases(
     imported, errors = service.import_cases(
         session, workspace.id, dataset_id, file.filename or "cases", content
     )
+    audit_commit(
+        session,
+        workspace.id,
+        "evaluation.cases_imported",
+        "dataset",
+        dataset_id,
+        imported=imported,
+        rejected=len(errors),
+    )
     return ImportSummary(
         imported=imported, errors=[ImportRowError(row=e.row, message=e.message) for e in errors]
     )
@@ -79,6 +92,14 @@ def load_sample(
     """Upload the synthetic sample documents and create the bundled gold set (PRD §5.1)."""
     dataset_id, queued, existing = service.load_sample(
         session, storage, workspace, REPO_ROOT / "samples", settings.upload_max_bytes
+    )
+    audit_commit(
+        session,
+        workspace.id,
+        "evaluation.sample_loaded",
+        "dataset",
+        dataset_id,
+        documents_queued=queued,
     )
     return SampleLoaded(dataset_id=dataset_id, documents_queued=queued, documents_existing=existing)
 
@@ -94,6 +115,15 @@ def create_run(
 ) -> RunOut:
     """Queue a run; the worker executes it in the background."""
     run = runner.create_run(session, settings, workspace.id, body.dataset_id, body.config)
+    audit_commit(
+        session,
+        workspace.id,
+        "evaluation.run_queued",
+        "evaluation_run",
+        run.id,
+        strategy=run.strategy,
+        cases=run.total,
+    )
     return service.run_out(run)
 
 
@@ -133,4 +163,5 @@ def export_run(
 )
 def delete_run(run_id: uuid.UUID, session: SessionDep, workspace: WorkspaceDep) -> Response:
     service.delete_run(session, workspace.id, run_id)
+    audit_commit(session, workspace.id, "evaluation.run_deleted", "evaluation_run", run_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

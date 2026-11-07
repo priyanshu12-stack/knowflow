@@ -93,6 +93,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: UI smoke tests (Playwright, mocked API, 390/820/1440 px)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run e2e
 
   compose:
     name: Docker Compose config

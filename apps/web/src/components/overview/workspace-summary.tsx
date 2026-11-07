@@ -61,6 +61,7 @@ function RenameDialog({
     try {
       const updated = await renameWorkspace(workspace.id, trimmed);
       onRenamed(updated);
+      window.dispatchEvent(new Event("knowflow:workspace-renamed"));
       onOpenChange(false);
       toast.success(`Workspace renamed to “${updated.name}”.`);
     } catch (err) {

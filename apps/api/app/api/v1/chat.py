@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Response, status
 
 from app.api.deps import SessionDep, SettingsDep, WorkspaceDep
 from app.core.errors import ErrorResponse
+from app.modules.audit import audit_commit
 from app.modules.models.registry import chat_model
 from app.modules.rag import service
 from app.schemas.chat import (
@@ -31,7 +32,20 @@ def chat_query(
     body: ChatQuery, session: SessionDep, settings: SettingsDep, workspace: WorkspaceDep
 ) -> AnswerOut:
     """Answer from retrieved evidence with verified citations, or abstain. Not streamed (v1)."""
-    return service.ask(session, settings, workspace.id, body, chat_model(session, settings))
+    answer = service.ask(session, settings, workspace.id, body, chat_model(session, settings))
+    audit_commit(
+        session,
+        workspace.id,
+        "chat.answered",
+        "message",
+        answer.message_id,
+        abstained=answer.abstained,
+        citations=len(answer.citations),
+        mode=answer.retrieval.mode,
+        latency_ms=answer.latency_ms,
+        model=answer.model,
+    )
+    return answer
 
 
 @router.get("/conversations", response_model=Page[ConversationOut])
@@ -71,7 +85,7 @@ def rename_conversation(
 ) -> ConversationDetail:
     conversation = service.get_conversation(session, workspace.id, conversation_id)
     conversation.title = body.title
-    session.commit()
+    audit_commit(session, workspace.id, "conversation.renamed", "conversation", conversation.id)
     return service.conversation_detail(session, conversation)
 
 
@@ -87,7 +101,7 @@ def delete_conversation(
     except AppError:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     session.delete(conversation)
-    session.commit()
+    audit_commit(session, workspace.id, "conversation.deleted", "conversation", conversation_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -100,4 +114,13 @@ def put_feedback(
     message_id: uuid.UUID, body: FeedbackIn, session: SessionDep, workspace: WorkspaceDep
 ) -> Response:
     service.set_feedback(session, workspace.id, message_id, body.rating, body.reason)
+    audit_commit(
+        session,
+        workspace.id,
+        "feedback.recorded",
+        "message",
+        message_id,
+        rating=body.rating,
+        has_reason=bool(body.reason),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

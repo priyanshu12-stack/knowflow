@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    activity,
     chat,
     documents,
     evaluations,
@@ -22,3 +23,4 @@ router.include_router(settings.router)
 router.include_router(chat.router)
 router.include_router(evaluations.router)
 router.include_router(sql.router)
+router.include_router(activity.router)
