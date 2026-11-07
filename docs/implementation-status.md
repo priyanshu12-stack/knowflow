@@ -193,6 +193,16 @@ Not done (recorded in ADR-000 G-8): RAG `/chat/clarify` is not exposed. Conversa
 - [ ] Demo video: **not recorded**
 - [~] **Exit:** a new machine can follow the setup docs and run locally (fresh-clone check below); CI green is pending a remote
 
+#### M8 verification record (2026-11-07)
+
+| Check | Result |
+|---|---|
+| Fresh clone of `feat/m8-release` into an empty folder → `dev.ps1 setup` → `dev.ps1 check` | Pass: new venv + `npm ci`, ruff/mypy/eslint/prettier/tsc clean, pytest 282 passed (3 opt-in skipped), vitest 80/80, `next build` OK |
+| Playwright smoke suite (production build, Edge) | 28/28 |
+| Real-model tests (`KNOWFLOW_RUN_OLLAMA=1`) | 3/3 (embedding dimension, structured JSON, prompt injection resisted) |
+| README screenshots | Captured from the running app with real data (`docs/screenshots/`) |
+| CI / Docker Compose up / demo video | **Not run / not recorded** (no remote, no Docker, ADR-008) |
+
 ## Benchmark status
 
 No benchmarks have been run. All quality, latency and resource metrics are **NOT MEASURED**.
