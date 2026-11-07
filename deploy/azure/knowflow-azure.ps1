@@ -81,12 +81,17 @@ function Set-SshRule {
         --source-address-prefixes "$myIp/32" | Out-Null
 }
 
+# Windows PowerShell 5.1 turns native stderr (e.g. ssh's known-hosts notice) into a terminating
+# error under 'Stop' when output is redirected, so ssh calls run with 'Continue' and are judged
+# by exit code only (same pattern as scripts/db.ps1).
 function Invoke-Ssh([string]$RemoteCommand) {
+    $ErrorActionPreference = 'Continue'
     & ssh -i $KeyPath -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 "$AdminUser@$Domain" $RemoteCommand
     if ($LASTEXITCODE -ne 0) { throw "ssh command failed (exit $LASTEXITCODE)" }
 }
 
 function Wait-Ssh {
+    $ErrorActionPreference = 'Continue'
     Write-Host 'Waiting for SSH...'
     for ($i = 0; $i -lt 40; $i++) {
         & ssh -i $KeyPath -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 -o BatchMode=yes "$AdminUser@$Domain" true 2>$null
@@ -108,6 +113,12 @@ switch ($Command) {
         Invoke-Az network nsg rule create -g $Rg --nsg-name $NsgName -n web --priority 110 `
             --access Allow --protocol Tcp --direction Inbound --destination-port-ranges 80 443 | Out-Null
         Set-SshRule
+        $existing = & az vm show -g $Rg -n $Vm --query id -o tsv --only-show-errors 2>$null
+        if ($existing) {
+            Write-Host "VM $Vm already exists; starting it and re-running the install."
+            Invoke-Az vm start -g $Rg -n $Vm | Out-Null
+            Add-PublicIp | Out-Null
+        } else {
         Write-Host "Creating VM $Vm ($Size, Ubuntu 24.04, 32 GB Standard SSD)"
         Invoke-Az network public-ip create -g $Rg -n $IpName -l $Location --sku Standard `
             --allocation-method Static --dns-name $DnsLabel | Out-Null
@@ -116,6 +127,7 @@ switch ($Command) {
             --admin-username $AdminUser --ssh-key-values "$KeyPath.pub" `
             --os-disk-size-gb 32 --storage-sku StandardSSD_LRS `
             --nsg $NsgName --public-ip-address $IpName | Out-Null
+        }
         Invoke-Az vm auto-shutdown -g $Rg -n $Vm --time $Shutdown | Out-Null
         Write-Host 'Nightly auto-shutdown set for 23:30 IST.'
         Wait-Ssh
@@ -160,12 +172,13 @@ switch ($Command) {
         $remote = "read -r pw; h=`$(caddy hash-password --plaintext ""`$pw""); unset pw; " +
                   "printf 'basicauth {\n\t%s %s\n}\n' '$user' ""`$h"" | sudo tee /etc/caddy/knowflow-auth.caddy >/dev/null; " +
                   "sudo systemctl reload caddy && echo 'Password updated.'"
+        $ErrorActionPreference = 'Continue'
         $plain | & ssh -i $KeyPath -o StrictHostKeyChecking=accept-new "$AdminUser@$Domain" $remote
         $plain = $null
         if ($LASTEXITCODE -ne 0) { throw 'Setting the password failed.' }
         Write-Host "Log in at https://$Domain as '$user'."
     }
-    'ssh' { Set-SshRule; & ssh -i $KeyPath "$AdminUser@$Domain" }
+    'ssh' { Set-SshRule; $ErrorActionPreference = 'Continue'; & ssh -i $KeyPath "$AdminUser@$Domain" }
     'logs' {
         Set-SshRule
         Invoke-Ssh 'sudo journalctl -u knowflow-api -u knowflow-worker -u knowflow-web -u caddy -n 80 --no-pager'
