@@ -26,10 +26,11 @@ describe("SidebarNav", () => {
     // Unbuilt pages are disabled with an explanation, never a dead link (DRD §13, §15).
     expect(screen.getByRole("link", { name: "Ask KnowFlow" })).toHaveAttribute("href", "/ask");
     expect(screen.getByRole("link", { name: "SQL Analyst" })).toHaveAttribute("href", "/sql");
-    const activity = screen.getByRole("link", { name: /Activity/ });
-    expect(activity).toHaveAttribute("aria-disabled", "true");
-    expect(activity).not.toHaveAttribute("href");
-    expect(activity).toHaveTextContent("ships in milestone M7");
+    // Every page now exists: no item is disabled.
+    for (const name of ["Activity", "Help", "Models & Settings", "Evaluation Lab"]) {
+      expect(screen.getByRole("link", { name })).toHaveAttribute("href");
+    }
+    expect(document.querySelector("[aria-disabled=true]")).toBeNull();
   });
 });
 
