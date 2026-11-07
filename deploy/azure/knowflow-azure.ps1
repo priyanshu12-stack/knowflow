@@ -11,7 +11,9 @@
   ./deploy/azure/knowflow-azure.ps1 set-password  # prompts locally; the password never leaves as text in a command
   ./deploy/azure/knowflow-azure.ps1 start         # before a demo (~3-5 min until answers are fast)
   ./deploy/azure/knowflow-azure.ps1 stop          # after the demo
-  ./deploy/azure/knowflow-azure.ps1 status | update | ssh | logs
+  
+  
+   | update | ssh | logs
 #>
 param(
     [Parameter(Mandatory = $true, Position = 0)]
@@ -38,6 +40,15 @@ $SetupUrl  = 'https://raw.githubusercontent.com/priyanshu12-stack/knowflow/main/
 $azDir = 'C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin'
 if (-not (Get-Command az -ErrorAction SilentlyContinue) -and (Test-Path $azDir)) { $env:Path += ";$azDir" }
 
+# Probe that returns $null instead of throwing when the resource doesn't exist ("not found" is
+# printed on stderr, which PowerShell 5.1 would otherwise turn into a terminating error).
+function Get-AzValue {
+    $ErrorActionPreference = 'Continue'
+    $out = & az @args --only-show-errors 2>$null
+    if ($LASTEXITCODE -ne 0) { return $null }
+    return $out
+}
+
 function Invoke-Az {
     $ErrorActionPreference = 'Continue'
     $out = & az @args --only-show-errors 2>&1
@@ -53,7 +64,7 @@ function Get-NicIpConfig {
 }
 
 function Add-PublicIp {
-    $exists = & az network public-ip show -g $Rg -n $IpName --query id -o tsv --only-show-errors 2>$null
+    $exists = Get-AzValue network public-ip show -g $Rg -n $IpName --query id -o tsv
     if (-not $exists) {
         Write-Host "Creating public IP with DNS name $Domain"
         Invoke-Az network public-ip create -g $Rg -n $IpName -l $Location --sku Standard `
@@ -65,7 +76,7 @@ function Add-PublicIp {
 }
 
 function Remove-PublicIp {
-    $exists = & az network public-ip show -g $Rg -n $IpName --query id -o tsv --only-show-errors 2>$null
+    $exists = Get-AzValue network public-ip show -g $Rg -n $IpName --query id -o tsv
     if (-not $exists) { return }
     $nic, $ipc = Get-NicIpConfig
     Invoke-Az network nic ip-config update -g $Rg --nic-name $nic -n $ipc --remove publicIpAddress | Out-Null
@@ -113,7 +124,7 @@ switch ($Command) {
         Invoke-Az network nsg rule create -g $Rg --nsg-name $NsgName -n web --priority 110 `
             --access Allow --protocol Tcp --direction Inbound --destination-port-ranges 80 443 | Out-Null
         Set-SshRule
-        $existing = & az vm show -g $Rg -n $Vm --query id -o tsv --only-show-errors 2>$null
+        $existing = Get-AzValue vm show -g $Rg -n $Vm --query id -o tsv
         if ($existing) {
             Write-Host "VM $Vm already exists; starting it and re-running the install."
             Invoke-Az vm start -g $Rg -n $Vm | Out-Null
@@ -152,7 +163,7 @@ switch ($Command) {
     }
     'status' {
         $state = Invoke-Az vm get-instance-view -g $Rg -n $Vm --query "instanceView.statuses[?starts_with(code,'PowerState')].displayStatus | [0]" -o tsv
-        $ip = & az network public-ip show -g $Rg -n $IpName --query ipAddress -o tsv --only-show-errors 2>$null
+        $ip = Get-AzValue network public-ip show -g $Rg -n $IpName --query ipAddress -o tsv
         Write-Host "VM: $state"
         Write-Host ("Public IP: " + $(if ($ip) { "$ip  ->  https://$Domain" } else { 'none (released)' }))
     }
