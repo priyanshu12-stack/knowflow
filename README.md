@@ -460,6 +460,10 @@ docs          TRD/PRD/DRD, traceability matrix, status, ADRs, architecture, eval
 - [Decisions (ADR-000 … ADR-008)](docs/decisions/README.md) · [Evaluation report](docs/evaluation/README.md) ·
   [Building a gold set](docs/evaluation/dataset-guide.md) · [Demo data sources](docs/demo-data-sources.md) ·
   [Design system](docs/design-system.md) · [Changelog](CHANGELOG.md)
+- Interview and engineering handbook: [Master guide](docs/KNOWFLOW_ENGINEERING_AND_INTERVIEW_MASTER_GUIDE.md) ·
+  [Quick revision](docs/KNOWFLOW_QUICK_REVISION.md) · [Presentation](docs/KNOWFLOW_INTERVIEW_PRESENTATION.md) ·
+  [API reference](docs/KNOWFLOW_API_REFERENCE.md) · [Function index](docs/KNOWFLOW_FUNCTION_INDEX.md) ·
+  [Question bank](docs/KNOWFLOW_INTERVIEW_QUESTION_BANK.md)
 - Deployment: [Azure for Students](docs/deploy-azure.md) (no credit card; start/stop for demos) ·
   [Hugging Face Spaces](docs/deploy-huggingface.md) (needs HF PRO for Docker Spaces)
 
